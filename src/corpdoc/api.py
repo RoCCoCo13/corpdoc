@@ -24,10 +24,20 @@ from datetime import date
 from pathlib import Path
 
 from reportlab.lib.colors import HexColor, white
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm, mm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.platypus import (
+    BaseDocTemplate,
+    Frame,
+    NextPageTemplate,
+    PageBreak,
+    PageTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+)
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from corpdoc.colors import extract_colors_from_svg, assign_roles
@@ -39,10 +49,12 @@ from corpdoc.i18n import t
 from corpdoc.logo import Logo
 
 
-class CorpDocTemplate(SimpleDocTemplate):
+class CorpDocTemplate(BaseDocTemplate):
     """
-    SimpleDocTemplate subclass that feeds heading paragraphs into the
-    real TableOfContents flowable via ReportLab's notify mechanism.
+    BaseDocTemplate subclass with two page templates (portrait A4 and
+    landscape A4) so wide tables can auto-switch orientation mid-document.
+    Heading paragraphs are fed into the real TableOfContents flowable via
+    ReportLab's notify mechanism.
     """
 
     def afterFlowable(self, flowable):
@@ -148,15 +160,43 @@ class CorpDoc:
         title = self._extract_title(meta, blocks)
         subtitle = self._extract_subtitle(meta, blocks)
 
+        left_m, right_m, top_m, bottom_m = 2 * cm, 2 * cm, 2.2 * cm, 3.2 * cm
+        portrait_size = A4
+        landscape_size = landscape(A4)
+
         doc = CorpDocTemplate(
             output,
-            pagesize=A4,
-            leftMargin=2 * cm,
-            rightMargin=2 * cm,
-            topMargin=2.2 * cm,
-            bottomMargin=3.2 * cm,
+            pagesize=portrait_size,
+            leftMargin=left_m,
+            rightMargin=right_m,
+            topMargin=top_m,
+            bottomMargin=bottom_m,
             title=title,
             author=meta.get("autor", meta.get("author", "")),
+        )
+
+        def _make_frame(pw, ph, frame_id):
+            return Frame(
+                left_m,
+                bottom_m,
+                pw - left_m - right_m,
+                ph - top_m - bottom_m,
+                id=frame_id,
+            )
+
+        doc.addPageTemplates(
+            [
+                PageTemplate(
+                    id="portrait",
+                    frames=[_make_frame(*portrait_size, "portrait_frame")],
+                    pagesize=portrait_size,
+                ),
+                PageTemplate(
+                    id="landscape",
+                    frames=[_make_frame(*landscape_size, "landscape_frame")],
+                    pagesize=landscape_size,
+                ),
+            ]
         )
 
         elements = []
@@ -361,7 +401,14 @@ class CorpDoc:
                     els.append(Paragraph(f"•  {text}", style))
                 els.append(Spacer(1, 2 * mm))
             elif tp == "table":
-                els.extend(self._build_table(b["rows"]))
+                if self._needs_landscape(b["rows"]):
+                    els.append(NextPageTemplate("landscape"))
+                    els.append(PageBreak())
+                    els.extend(self._build_table(b["rows"], page_width=landscape(A4)[0]))
+                    els.append(NextPageTemplate("portrait"))
+                    els.append(PageBreak())
+                else:
+                    els.extend(self._build_table(b["rows"]))
             elif tp == "mermaid":
                 content = b["content"].replace("\n", "<br/>")
                 els.append(Paragraph(f"<b>[ Diagram ]</b><br/><br/>{content}", S["CMermaid"]))
@@ -375,7 +422,15 @@ class CorpDoc:
                 els.append(HRLine(100, 0.5, HexColor(c["secondary"]), 4 * mm, 4 * mm))
         return els
 
-    def _build_table(self, rows):
+    def _needs_landscape(self, rows):
+        """
+        A table is rendered on a landscape page when its column count
+        exceeds the configured threshold (default: 8).
+        """
+        threshold = self.cfg.get("tables", {}).get("landscape_threshold", 8)
+        return bool(rows) and len(rows[0]) >= threshold
+
+    def _build_table(self, rows, page_width=None):
         if not rows:
             return []
         S = self.styles
@@ -389,7 +444,8 @@ class CorpDoc:
             [Paragraph(cell, hs if ri == 0 else cs) for cell in row] for ri, row in enumerate(rows)
         ]
 
-        avail = A4[0] - 4 * cm
+        pw = page_width if page_width is not None else A4[0]
+        avail = pw - 4 * cm
         tbl = Table(data, colWidths=[avail / n] * n, repeatRows=1)
 
         style = [

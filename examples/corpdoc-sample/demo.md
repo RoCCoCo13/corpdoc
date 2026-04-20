@@ -96,6 +96,23 @@ primary color, and even rows get a subtle tint of the accent color.
 | Testing | 2 weeks | 4 | €8,000 | Pending | Low |
 | Deployment | 1 week | 2 | €3,000 | Pending | High |
 
+## 2.3 Very Wide Table — Auto Landscape
+
+When a table has 8 or more columns, CorpDoc automatically rotates the page to
+landscape so the content stays readable. The threshold is configurable via
+`tables.landscape_threshold` in the YAML.
+
+| Phase | Duration | Team | Personnel | Materials | Software | Travel | Overhead | Total |
+|-------|----------|------|-----------|-----------|----------|--------|----------|-------|
+| Planning | 2 weeks | 3 | €4,200 | €150 | €0 | €300 | €350 | €5,000 |
+| Design | 3 weeks | 5 | €9,800 | €600 | €900 | €0 | €700 | €12,000 |
+| Development | 8 weeks | 8 | €36,000 | €1,100 | €4,200 | €800 | €2,900 | €45,000 |
+| Integration | 2 weeks | 6 | €7,400 | €300 | €0 | €0 | €800 | €8,500 |
+| Testing | 2 weeks | 4 | €6,500 | €200 | €700 | €100 | €500 | €8,000 |
+| Deployment | 1 week | 2 | €2,400 | €100 | €200 | €100 | €200 | €3,000 |
+| Training | 1 week | 3 | €3,100 | €250 | €0 | €400 | €250 | €4,000 |
+| Handover | 1 week | 2 | €1,800 | €0 | €0 | €0 | €200 | €2,000 |
+
 ---
 
 # 3. Diagrams

@@ -37,6 +37,9 @@ defaults:
   version: "1.0"
   author: "Jane Doe"
 
+tables:
+  landscape_threshold: 8
+
 # Optional: override auto-extracted colors
 colors:
   primary: "#003d5c"
@@ -105,6 +108,19 @@ Markdown frontmatter.
 | `language` | `"auto"` \| `"en"` \| `"es"` \| `"de"` \| `"fr"` | Controls footer labels and version-history headers |
 | `version` | str | Default version if the document frontmatter doesn't specify one |
 | `author` | str | Default author name |
+
+### `tables` (optional)
+
+Controls automatic handling of wide tables.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `landscape_threshold` | int | Tables with this many columns or more are rendered on an automatically rotated landscape A4 page. Default: `8`. Set very high to disable. |
+
+When a table triggers the threshold, CorpDoc inserts a page break, switches the
+page template to landscape for that one page, renders the table at full
+landscape width, then switches back. Header/footer on the landscape page
+adapt automatically.
 
 ### `colors` (optional override)
 

@@ -95,6 +95,11 @@ defaults:
   language: "auto"           # auto|en|es|de|fr
   version: "1.0"
   author: ""
+
+tables:
+  # Tables with this many columns (or more) are auto-rotated to a landscape
+  # page so the content stays readable. Raise this value to disable.
+  landscape_threshold: 8
 """
 
     out_path = Path(args.output)

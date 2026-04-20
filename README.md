@@ -60,6 +60,8 @@ Typst, or fight with Word templates.
 - 📚 **Auto table of contents** from your headings
 - 🏷️ **Branded headers and footers** with company info on every page
 - 📊 **Auto-styled tables** with zebra striping in your brand colors
+- 📐 **Auto-landscape for wide tables** — 8+ column tables rotate the page
+  so content stays readable
 - 🌐 **Language detection** (English, Spanish, German, French) — pagination
   and labels localize automatically
 - 📐 **Nested lists**, inline formatting, code blocks, Mermaid diagrams
@@ -175,8 +177,9 @@ corpdoc/
 ## Roadmap
 
 - [x] **v0.3** — Core rendering, SVG color extraction, AI skill
-- [ ] **v0.4** — Mermaid diagram rendering via Quarto/Kroki fallback
-- [ ] **v0.5** — Auto-landscape for very wide tables
+- [ ] **v0.4** — Native SVG rendering, auto-landscape for wide tables,
+  configurable cover styles, i18n module *(in progress)*
+- [ ] **v0.5** — Mermaid diagram rendering via Quarto/Kroki fallback
 - [ ] **v0.6** — DOCX export via Pandoc pipeline
 - [ ] **v0.7** — Template gallery (offers, reports, memos, contracts)
 - [ ] **v1.0** — Stable API, PyPI release, comprehensive test suite

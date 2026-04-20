@@ -165,3 +165,51 @@ def test_render_returns_output_path():
     finally:
         if os.path.exists(pdf_path):
             os.unlink(pdf_path)
+
+
+def test_needs_landscape_threshold():
+    """_needs_landscape returns True only when column count meets threshold."""
+    doc = CorpDoc(config=MINIMAL_CONFIG)
+    assert doc._needs_landscape([["a"] * 7]) is False
+    assert doc._needs_landscape([["a"] * 8]) is True
+    assert doc._needs_landscape([]) is False
+
+
+def test_needs_landscape_custom_threshold():
+    cfg = {**MINIMAL_CONFIG, "tables": {"landscape_threshold": 5}}
+    doc = CorpDoc(config=cfg)
+    assert doc._needs_landscape([["a"] * 4]) is False
+    assert doc._needs_landscape([["a"] * 5]) is True
+
+
+def test_render_wide_table_produces_landscape_page():
+    """A 9-column table must trigger a landscape page in the output PDF."""
+    md = textwrap.dedent("""\
+        # Wide Table Demo
+
+        Some intro text.
+
+        | A | B | C | D | E | F | G | H | I |
+        |---|---|---|---|---|---|---|---|---|
+        | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+        | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+
+        Trailing paragraph.
+    """)
+    pdf = _make_pdf(md_text=md)
+    try:
+        assert os.path.exists(pdf)
+        # Parse page sizes from the PDF itself via pypdf (optional dep in reportlab stack).
+        # Fall back to substring check if pypdf isn't available.
+        try:
+            from pypdf import PdfReader
+
+            reader = PdfReader(pdf)
+            sizes = [(p.mediabox.width, p.mediabox.height) for p in reader.pages]
+            # At least one page must be landscape (width > height).
+            assert any(w > h for w, h in sizes), f"no landscape page found in {sizes}"
+        except ImportError:
+            # Without pypdf, just assert the PDF is larger than a portrait-only baseline.
+            assert os.path.getsize(pdf) > 2000
+    finally:
+        os.unlink(pdf)

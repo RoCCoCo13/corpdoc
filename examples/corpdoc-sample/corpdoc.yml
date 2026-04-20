@@ -29,6 +29,12 @@ defaults:
   version: "0.3.0"
   author: "CorpDoc Team"
 
+tables:
+  # Tables with this many columns (or more) are rendered on an automatically
+  # rotated landscape page, so the content stays readable instead of being
+  # squeezed into portrait width. Set very high to disable.
+  landscape_threshold: 8
+
 # The logo contains a dark slate accent element whose luminance beats the
 # forest green used in the wordmark. Auto-extraction picks slate as primary;
 # we override explicitly so documents render in the true brand colors.

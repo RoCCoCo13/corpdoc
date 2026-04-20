@@ -11,7 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   SVG, PNG, or both — CorpDoc picks the best available source.
 - `corpdoc.i18n` module centralizing all localized strings.
 - Logo resolver (`corpdoc.logo.Logo`) with a unified `draw()` API.
-- Tests for the logo resolver and for the new frontmatter parser.
+- **Auto-landscape wide tables:** tables whose column count meets
+  `tables.landscape_threshold` (default 8) now render on a rotated A4 page
+  so content stays readable instead of being squeezed. Configurable per
+  project via `corpdoc.yml`. Demo includes a 9-column cost-breakdown table
+  that exercises the feature.
+- Tests for the logo resolver, the new frontmatter parser, and for
+  landscape table rotation (verified via `pypdf`).
 
 ### Changed
 - **Colors:** the CorpDoc brand palette moved from teal/coral to
