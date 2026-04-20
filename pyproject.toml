@@ -35,7 +35,10 @@ dependencies = [
     "Pillow>=10.0",
     "PyYAML>=6.0",
     "mistune>=3.0",
-    "svglib>=1.5",
+    # Pinned < 1.6 because 1.6.0 added a hard dep on rlpycairo → pycairo,
+    # which requires libcairo system libs (no Linux wheels exist). We only
+    # use svglib's classic svg2rlg path, which 1.5.x supports cleanly.
+    "svglib>=1.5,<1.6",
 ]
 
 [project.optional-dependencies]
