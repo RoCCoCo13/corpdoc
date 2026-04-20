@@ -55,7 +55,8 @@ Typst, or fight with Word templates.
 ## Features
 
 - 🎨 **Extracts brand colors automatically** from your SVG logo
-- 📄 **Cover page** with your logo, title, and a branded accent color block
+- 📄 **Cover page** with 4 styles to pick from (classic, minimal,
+  bold-band, split) — configurable in the YAML
 - 📋 **Version history** page for document control (change log)
 - 📚 **Auto table of contents** from your headings
 - 🏷️ **Branded headers and footers** with company info on every page

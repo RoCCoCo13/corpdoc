@@ -81,6 +81,14 @@ logo:
   cover_scale: 1.00          # size of logo on cover page (1.0 = default)
   header_scale: 0.45         # size of logo in header (fraction of cover size)
 
+cover:
+  # Choose one of: classic | minimal | bold-band | split
+  #   classic   — logo top, accent band bottom with title in white
+  #   minimal   — small top-left logo, large centered title on white
+  #   bold-band — full-page primary color, white logo + title stacked center
+  #   split     — top half primary with logo, bottom half white with title
+  style: "classic"
+
 footer:
   address: ""
   fields:

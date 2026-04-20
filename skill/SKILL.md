@@ -157,8 +157,14 @@ Use standard Markdown tables. CorpDoc styles them automatically:
 ```
 
 Tables with up to 6 columns render at standard size. Tables with 7+ columns
-automatically switch to a smaller font. Tables longer than a page break across
-pages with the header row repeated.
+automatically switch to a smaller font. Tables with 8 or more columns are
+auto-rotated to a landscape A4 page so the content stays readable (threshold
+configurable via `tables.landscape_threshold`). Tables longer than a page
+break across pages with the header row repeated.
+
+The cover page look is chosen by the operator in `corpdoc.yml` via
+`cover.style` — one of `classic`, `minimal`, `bold-band`, `split`. The AI
+does not need to do anything for this; just produce the Markdown body.
 
 ### 5. Diagrams (Mermaid)
 

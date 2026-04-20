@@ -266,6 +266,18 @@ class CorpDoc:
     # ─────────────────────────────────────────────────
 
     def _build_cover(self, title, subtitle, meta, lang):
+        cover_cfg = self.cfg.get("cover", {}) or {}
+        style = cover_cfg.get("style", "classic")
+        if style not in CoverPageFlowable.STYLES:
+            import sys
+
+            print(
+                f"Warning: unknown cover.style '{style}'. "
+                f"Falling back to 'classic'. Valid: {', '.join(CoverPageFlowable.STYLES)}",
+                file=sys.stderr,
+            )
+            style = "classic"
+
         return [
             CoverPageFlowable(
                 title=title,
@@ -277,6 +289,8 @@ class CorpDoc:
                 colors=self.colors,
                 company=self.cfg.get("company", {}),
                 defaults=self.cfg.get("defaults", {}),
+                style=style,
+                cover_cfg=cover_cfg,
             ),
             PageBreak(),
         ]

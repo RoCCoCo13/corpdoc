@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   so content stays readable instead of being squeezed. Configurable per
   project via `corpdoc.yml`. Demo includes a 9-column cost-breakdown table
   that exercises the feature.
+- **Configurable cover styles** via `cover.style` in `corpdoc.yml`:
+  `classic` (default), `minimal`, `bold-band`, `split`. Unknown style names
+  fall back to `classic` with a warning. `CoverPageFlowable` now dispatches
+  per style rather than hard-coding one layout.
 - Tests for the logo resolver, the new frontmatter parser, and for
   landscape table rotation (verified via `pypdf`).
 

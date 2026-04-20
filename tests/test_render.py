@@ -182,6 +182,31 @@ def test_needs_landscape_custom_threshold():
     assert doc._needs_landscape([["a"] * 5]) is True
 
 
+def test_render_each_cover_style():
+    """All shipped cover styles must render without raising."""
+    from corpdoc.flowables import CoverPageFlowable
+
+    for style in CoverPageFlowable.STYLES:
+        cfg = {**MINIMAL_CONFIG, "cover": {"style": style}}
+        pdf = _make_pdf(config=cfg)
+        try:
+            assert os.path.exists(pdf)
+            assert os.path.getsize(pdf) > 2000, f"style {style!r} produced tiny PDF"
+        finally:
+            os.unlink(pdf)
+
+
+def test_unknown_cover_style_falls_back_to_classic(capsys):
+    cfg = {**MINIMAL_CONFIG, "cover": {"style": "does-not-exist"}}
+    pdf = _make_pdf(config=cfg)
+    try:
+        assert os.path.exists(pdf)
+        captured = capsys.readouterr()
+        assert "unknown cover.style" in captured.err
+    finally:
+        os.unlink(pdf)
+
+
 def test_render_wide_table_produces_landscape_page():
     """A 9-column table must trigger a landscape page in the output PDF."""
     md = textwrap.dedent("""\

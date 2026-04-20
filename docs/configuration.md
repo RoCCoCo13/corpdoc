@@ -20,6 +20,9 @@ logo:
   cover_scale: 1.00
   header_scale: 0.45
 
+cover:
+  style: "classic"   # classic | minimal | bold-band | split
+
 footer:
   address: "Calle Principal 42, 28001 Madrid"
   fields:
@@ -108,6 +111,33 @@ Markdown frontmatter.
 | `language` | `"auto"` \| `"en"` \| `"es"` \| `"de"` \| `"fr"` | Controls footer labels and version-history headers |
 | `version` | str | Default version if the document frontmatter doesn't specify one |
 | `author` | str | Default author name |
+
+### `cover` (optional)
+
+Selects the look of the first page.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `style` | `"classic"` \| `"minimal"` \| `"bold-band"` \| `"split"` | Cover layout. Default: `"classic"`. |
+
+Style reference:
+
+- **`classic`** — logo centered in the top half, accent-colored band filling
+  the bottom 40% of the page, with the title and subtitle printed in white
+  on top of it. The default, and what every existing CorpDoc PDF uses.
+- **`minimal`** — small logo anchored top-left, title large and centered
+  around the 55% vertical line with a thin accent rule below it. Everything
+  on a clean white page in the primary color. Best for internal memos and
+  short documents.
+- **`bold-band`** — the whole page is painted in the primary brand color;
+  logo, title and subtitle are stacked and centered in white. Maximum brand
+  impact. Good for sales decks and proposals.
+- **`split`** — top 55% of the page filled with primary color (logo
+  centered inside, in whatever color the logo already has), thin accent
+  rule at the split line, bottom 45% white with the title in primary.
+  A clean corporate-modern layout.
+
+Unknown style names fall back to `classic` and emit a warning on stderr.
 
 ### `tables` (optional)
 

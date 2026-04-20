@@ -14,6 +14,10 @@ logo:
   cover_scale: 1.00
   header_scale: 0.45
 
+cover:
+  # classic | minimal | bold-band | split — try each to preview the style.
+  style: "classic"
+
 footer:
   address: "Open Source  |  MIT License"
   fields:
