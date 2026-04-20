@@ -1,0 +1,15 @@
+# CorpDoc code owners
+# All PRs require review from @RoCCoCo13 by default.
+# More specific patterns below override the catch-all.
+
+*                         @RoCCoCo13
+
+# Rendering pipeline — require extra care
+/src/corpdoc/api.py       @RoCCoCo13
+/src/corpdoc/canvas.py    @RoCCoCo13
+/src/corpdoc/flowables.py @RoCCoCo13
+
+# CI / release
+/.github/                 @RoCCoCo13
+/pyproject.toml           @RoCCoCo13
+/CHANGELOG.md             @RoCCoCo13

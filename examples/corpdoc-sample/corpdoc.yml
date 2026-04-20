@@ -1,0 +1,38 @@
+# CorpDoc Configuration — Using CorpDoc's own branding as demo
+
+company:
+  legal_name: "CorpDoc"
+  short_name: "corpdoc"
+  tagline: "corpdoc | markdown | to pdf"
+  brand_split: 4  # 'corp' and 'mark' = 4 chars in accent
+
+logo:
+  # This demo uses SVG only — CorpDoc renders the SVG directly via svglib.
+  # Adding a "png:" here would be equally valid; PNG wins when both exist.
+  svg: "logo.svg"
+  png: ""
+  cover_scale: 1.00
+  header_scale: 0.45
+
+footer:
+  address: "Open Source  |  MIT License"
+  fields:
+    - label: "Repo"
+      value: "github.com/RoCCoCo13/corpdoc"
+    - label: "Docs"
+      value: "corpdoc.dev"
+    - label: "Author"
+      value: "Alejandro Méndez"
+
+defaults:
+  language: "auto"
+  version: "0.3.0"
+  author: "CorpDoc Team"
+
+# The logo contains a dark slate accent element whose luminance beats the
+# forest green used in the wordmark. Auto-extraction picks slate as primary;
+# we override explicitly so documents render in the true brand colors.
+colors:
+  primary: "#1F4129"   # Forest green
+  secondary: "#C8A36A" # Camel
+  accent: "#C8A36A"

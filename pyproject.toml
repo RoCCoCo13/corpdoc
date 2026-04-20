@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "corpdoc"
+version = "0.3.0"
+description = "Professional Corporate PDF Generator from Markdown + Logo"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Alejandro Méndez", email = "roccoco13@gmail.com" },
+]
+keywords = [
+    "pdf", "markdown", "corporate", "branding", "documents",
+    "reports", "proposals", "ai", "llm"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Topic :: Printing",
+]
+dependencies = [
+    "reportlab>=4.0",
+    "Pillow>=10.0",
+    "PyYAML>=6.0",
+    "mistune>=3.0",
+    "svglib>=1.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1",
+]
+mermaid = [
+    "requests>=2.28",
+    "cairosvg>=2.6",
+]
+
+[project.urls]
+Homepage = "https://github.com/RoCCoCo13/corpdoc"
+Documentation = "https://github.com/RoCCoCo13/corpdoc/tree/main/docs"
+Repository = "https://github.com/RoCCoCo13/corpdoc"
+Issues = "https://github.com/RoCCoCo13/corpdoc/issues"
+Changelog = "https://github.com/RoCCoCo13/corpdoc/blob/main/CHANGELOG.md"
+
+[project.scripts]
+corpdoc = "corpdoc.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+corpdoc = ["*.yml", "templates/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
