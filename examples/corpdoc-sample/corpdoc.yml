@@ -43,6 +43,7 @@ tables:
 # forest green used in the wordmark. Auto-extraction picks slate as primary;
 # we override explicitly so documents render in the true brand colors.
 colors:
-  primary: "#1F4129"   # Forest green
-  secondary: "#C8A36A" # Camel
-  accent: "#C8A36A"
+  primary: "#1F4129"   # Forest green — body text, H1/H2, footer company name
+  secondary: "#C8A36A" # Camel       — table rules, dividers
+  accent: "#C8A36A"    # Camel       — cover band, highlights on page
+  highlight: "#1E293B" # Slate       — H3 headings, split cover line (4th tone)

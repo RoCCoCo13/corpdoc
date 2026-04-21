@@ -20,12 +20,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `classic` (default), `minimal`, `bold-band`, `split`. Unknown style names
   fall back to `classic` with a warning. `CoverPageFlowable` now dispatches
   per style rather than hard-coding one layout.
-- Tests for the logo resolver, the new frontmatter parser, and for
-  landscape table rotation (verified via `pypdf`).
+- **Fourth color role: `highlight`.** Palettes now expose a 4th tone picked
+  from the next darkest color distinct from `primary`/`secondary`/`accent`,
+  with a darkened-primary fallback for two-color logos. Used for `H3`
+  headings and the divider rule on the `split` cover style. Overridable via
+  `colors.highlight` in `corpdoc.yml`.
+- Tests for the logo resolver, the new frontmatter parser, the `highlight`
+  role (distinctness + fallback), and for landscape table rotation
+  (verified via `pypdf`).
 
 ### Changed
 - **Colors:** the CorpDoc brand palette moved from teal/coral to
-  forest/camel (`#1F4129` + `#C8A36A`).
+  forest/camel/slate (`#1F4129` + `#C8A36A` + `#1E293B`). Slate powers the
+  new `highlight` role so documents render with three visible brand tones.
+- **Logo refresh:** the wordmark is now a tight `CorpDoc` (capital `C` and
+  `D`, no gap) with `Corp` in forest and `Doc` in camel. The document-tile
+  mark uses all three brand colors.
 - **Frontmatter:** replaced the hand-rolled parser with `yaml.safe_load`.
   Values with colons, dates, and quoted strings now round-trip correctly.
 - **Color role assignment:** `accent` now falls back to `secondary` only

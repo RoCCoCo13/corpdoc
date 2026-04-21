@@ -79,8 +79,24 @@ def test_assign_roles_accent_falls_back_to_secondary_with_two_colors():
 
 def test_assign_roles_produces_all_keys():
     palette = assign_roles(["#ff5733", "#333333"])
-    for key in ("primary", "secondary", "accent", "light", "lighter", "text"):
+    for key in ("primary", "secondary", "accent", "highlight", "light", "lighter", "text"):
         assert key in palette, f"Missing {key}"
+
+
+def test_assign_roles_highlight_uses_fourth_distinct_color():
+    """When the palette has 4+ colors, highlight picks one distinct from the first 3."""
+    colors = ["#1F4129", "#C8A36A", "#1E293B", "#7A9E7E"]  # forest, camel, slate, sage
+    palette = assign_roles(colors)
+    assert palette["highlight"] not in (palette["primary"], palette["secondary"], palette["accent"])
+    assert palette["highlight"] in colors
+
+
+def test_assign_roles_highlight_falls_back_on_small_palette():
+    """With only 2 colors the palette can't provide a distinct highlight — fallback kicks in."""
+    palette = assign_roles(["#2e1e19", "#b9885a"])
+    # Must still produce a usable highlight (darkened primary fallback).
+    assert palette["highlight"]
+    assert palette["highlight"].startswith("#")
 
 
 def test_assign_roles_fallback_on_empty():

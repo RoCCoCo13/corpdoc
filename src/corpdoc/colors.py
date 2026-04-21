@@ -115,6 +115,9 @@ def assign_roles(colors):
         - accent: next most saturated color distinct from primary and secondary
                   (lines, cover band). Falls back to secondary if the palette
                   only has two usable colors.
+        - highlight: a 4th tone — next darkest color distinct from the first three
+                     (H3 headings, subtle dividers). Falls back to a darkened
+                     primary when the palette doesn't offer a distinct 4th color.
         - light: primary lightened 88% (for subtle backgrounds)
         - lighter: secondary lightened 92% (for zebra rows)
 
@@ -122,7 +125,7 @@ def assign_roles(colors):
         colors: List of hex color strings.
 
     Returns:
-        Dict with keys: primary, secondary, accent, light, lighter, text.
+        Dict with keys: primary, secondary, accent, highlight, light, lighter, text.
     """
     # Filter out near-white and near-black
     filtered = [c for c in colors if 20 < luminance(c) < 240]
@@ -146,10 +149,18 @@ def assign_roles(colors):
         secondary,
     )
 
+    # Highlight: next darkest color distinct from the first three. Used for
+    # a 4th tone (H3 headings, secondary dividers). Darkened primary fallback.
+    highlight = next(
+        (c for c in by_lum if c not in (primary, secondary, accent)),
+        darken(primary, 0.25),
+    )
+
     return {
         "primary": primary,
         "secondary": secondary,
         "accent": accent,
+        "highlight": highlight,
         "light": lighten(primary, 0.88),
         "lighter": lighten(secondary, 0.92),
         "text": "#333333",

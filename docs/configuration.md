@@ -47,6 +47,7 @@ tables:
 colors:
   primary: "#003d5c"
   accent: "#ff6b35"
+  highlight: "#334155"
 ```
 
 ## Section reference
@@ -162,10 +163,20 @@ colors:
   primary: "#003d5c"
   secondary: "#00a8e8"
   accent: "#ff6b35"
+  highlight: "#334155"
 ```
 
 Any keys you set here override the automatic extraction. Keys you don't
 specify remain auto-derived from the SVG.
+
+**Role reference** — what each color actually paints in the output:
+
+| Role | Used for |
+|------|----------|
+| `primary` | Body text, H1/H2 headings, footer company name, TOC level-1 entries, table header background |
+| `secondary` | Table outer borders, divider rules, brand-split secondary tone |
+| `accent` | Cover accent band, H1 underline rule, footer labels, zebra striping on tables |
+| `highlight` | 4th tone — H3 headings, thin rule on the `split` cover style. Gives documents more visual rhythm when the logo provides a 4th color. |
 
 ## Document-level frontmatter
 

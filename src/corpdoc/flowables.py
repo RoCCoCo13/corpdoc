@@ -299,7 +299,7 @@ class CoverPageFlowable(Flowable):
         canv = self.canv
         page_w, page_h = A4
         primary = HexColor(self.C["primary"])
-        accent = HexColor(self.C["accent"])
+        highlight = HexColor(self.C.get("highlight", self.C["accent"]))
 
         frame_x = 2 * cm
         frame_y = 3.2 * cm
@@ -311,9 +311,10 @@ class CoverPageFlowable(Flowable):
         canv.setFillColor(primary)
         canv.rect(-frame_x, page_h - top_h - frame_y, page_w, top_h, fill=1, stroke=0)
 
-        # Thin accent rule at the split line.
+        # Thin rule at the split line. Uses highlight so the split style
+        # visibly exercises the 4th color role when the palette provides one.
         split_y = page_h - top_h - frame_y
-        canv.setStrokeColor(accent)
+        canv.setStrokeColor(highlight)
         canv.setLineWidth(3)
         canv.line(-frame_x, split_y, page_w - frame_x, split_y)
 

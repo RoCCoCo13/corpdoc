@@ -6,13 +6,14 @@
      version="1.1">
   <!--
     CorpDoc Logo
-    Mark: three overlapping rounded squares representing layered/stacked documents
-          rotated slightly for dynamism, with a subtle accent stroke
-    Wordmark: "corp" in forest green, "doc" in camel ocher, underline in camel
+    Mark: three overlapping rounded document tiles representing layered/stacked
+          documents rotated slightly for dynamism, plus a small accent dot.
+    Wordmark: "CorpDoc" as a single tight word with "Corp" in forest green and
+              "Doc" in camel ocher, plus a camel underline under "Doc".
     Colors:
-      - Primary (Forest): #1F4129
-      - Accent  (Camel):  #C8A36A
-      - Dark   (Slate):   #1E293B
+      - Primary    (Forest): #1F4129
+      - Accent     (Camel):  #C8A36A
+      - Highlight  (Slate):  #1E293B
   -->
 
   <!-- ═══════ MARK (left side) ═══════ -->
@@ -22,7 +23,7 @@
           fill="#C8A36A" opacity="0.85"
           transform="rotate(-8 56 40)"/>
 
-    <!-- Middle document tile (dark slate) -->
+    <!-- Middle document tile (slate highlight) -->
     <rect x="16" y="10" width="56" height="72" rx="8" ry="8"
           fill="#1E293B" opacity="0.9"
           transform="rotate(-3 44 46)"/>
@@ -47,26 +48,19 @@
 
   <!-- ═══════ WORDMARK ═══════ -->
   <g transform="translate(130, 0)">
-    <!-- "corp" in forest green primary -->
+    <!-- Single tight word "CorpDoc", two colors via tspan so glyphs flow -->
     <text x="0" y="90"
           font-family="Helvetica, Arial, sans-serif"
           font-size="62"
           font-weight="700"
-          fill="#1F4129"
-          letter-spacing="-2">corp</text>
+          letter-spacing="-2">
+      <tspan fill="#1F4129">Corp</tspan><tspan fill="#C8A36A">Doc</tspan>
+    </text>
 
-    <!-- "doc" in camel accent -->
-    <text x="148" y="90"
-          font-family="Helvetica, Arial, sans-serif"
-          font-size="62"
-          font-weight="700"
-          fill="#C8A36A"
-          letter-spacing="-2">doc</text>
+    <!-- Camel underline under the whole wordmark -->
+    <rect x="0" y="98" width="250" height="4" fill="#C8A36A"/>
 
-    <!-- Underline under "doc" (camel) -->
-    <rect x="148" y="98" width="94" height="4" fill="#C8A36A"/>
-
-    <!-- Tagline below -->
+    <!-- Tagline below in slate (highlight) -->
     <text x="2" y="120"
           font-family="Helvetica, Arial, sans-serif"
           font-size="11"

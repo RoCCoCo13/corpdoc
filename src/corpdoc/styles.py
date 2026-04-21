@@ -82,7 +82,7 @@ def build_styles(colors):
             parent=base["Heading3"],
             fontName="Helvetica-Bold",
             fontSize=11,
-            textColor=HexColor(c["secondary"]),
+            textColor=HexColor(c.get("highlight", c["secondary"])),
             spaceBefore=5 * mm,
             spaceAfter=2 * mm,
         )
