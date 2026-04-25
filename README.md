@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/corpdoc-logo.svg" alt="CorpDoc" width="420"/>
+  <img src="https://raw.githubusercontent.com/RoCCoCo13/corpdoc/main/assets/corpdoc-logo-card.svg" alt="CorpDoc" width="460"/>
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 Drop in your logo and CorpDoc automatically derives your brand palette:
 
 <p align="center">
-  <img src="assets/preview-corpdoc-cover.png" alt="CorpDoc sample" width="60%"/>
+  <img src="https://raw.githubusercontent.com/RoCCoCo13/corpdoc/main/assets/preview-corpdoc-cover.png" alt="CorpDoc sample" width="60%"/>
   <br/>
   <em>CorpDoc self-demo — forest/camel palette from the CorpDoc logo</em>
 </p>
@@ -168,7 +168,8 @@ corpdoc/
 ├── examples/
 │   └── corpdoc-sample/     # Self-referential demo
 ├── assets/
-│   └── corpdoc-logo.svg    # CorpDoc's own brand mark
+│   ├── corpdoc-logo.svg       # Brand mark (transparent — for in-product use)
+│   └── corpdoc-logo-card.svg  # Same logo with white card (for docs/README)
 ├── docs/                   # Extended documentation
 └── tests/                  # Unit tests
 ```
@@ -178,8 +179,9 @@ corpdoc/
 ## Roadmap
 
 - [x] **v0.3** — Core rendering, SVG color extraction, AI skill
-- [ ] **v0.4** — Native SVG rendering, auto-landscape for wide tables,
-  configurable cover styles, i18n module *(in progress)*
+- [x] **v0.4** — Native SVG rendering, auto-landscape for wide tables,
+  configurable cover styles, `highlight` color role, pastel cover
+  surfaces, hardened release pipeline (OIDC + pip-audit + Dependabot)
 - [ ] **v0.5** — Mermaid diagram rendering via Quarto/Kroki fallback
 - [ ] **v0.6** — DOCX export via Pandoc pipeline
 - [ ] **v0.7** — Template gallery (offers, reports, memos, contracts)

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 520 180"
+     width="520"
+     height="180"
+     version="1.1">
+  <!--
+    CorpDoc Logo — README / docs variant.
+
+    Same artwork as corpdoc-logo.svg, wrapped in a white rounded card so
+    the wordmark stays readable in any GitHub theme (light, dark, or dim).
+    For in-product use (PDF covers/headers), keep the bare corpdoc-logo.svg
+    instead — the renderer already paints its own white card behind the
+    logo on colored cover surfaces.
+
+    Colors:
+      - Primary    (Forest): #1F4129
+      - Accent     (Camel):  #C8A36A
+      - Highlight  (Slate):  #1E293B
+  -->
+
+  <!-- White card background with rounded corners. Stays opaque on dark
+       themes so the logo never blends into the page. -->
+  <rect x="0" y="0" width="520" height="180" rx="16" ry="16" fill="#ffffff"/>
+
+  <!-- ═══════ MARK (left side) ═══════ -->
+  <g transform="translate(40, 50)">
+    <!-- Back document tile (camel, offset) -->
+    <rect x="28" y="4" width="56" height="72" rx="8" ry="8"
+          fill="#C8A36A" opacity="0.85"
+          transform="rotate(-8 56 40)"/>
+
+    <!-- Middle document tile (slate highlight) -->
+    <rect x="16" y="10" width="56" height="72" rx="8" ry="8"
+          fill="#1E293B" opacity="0.9"
+          transform="rotate(-3 44 46)"/>
+
+    <!-- Front document tile (forest green) — the "featured" one -->
+    <rect x="4" y="16" width="56" height="72" rx="8" ry="8"
+          fill="#1F4129"/>
+
+    <!-- Subtle highlight sliver for depth without using a gradient -->
+    <rect x="4" y="16" width="56" height="6" rx="8" ry="8"
+          fill="#2F6B42" opacity="0.9"/>
+
+    <!-- Content lines on the front tile (white, representing text) -->
+    <rect x="12" y="28" width="40" height="3" rx="1.5" fill="#ffffff" opacity="0.95"/>
+    <rect x="12" y="38" width="30" height="3" rx="1.5" fill="#ffffff" opacity="0.75"/>
+    <rect x="12" y="48" width="36" height="3" rx="1.5" fill="#ffffff" opacity="0.75"/>
+    <rect x="12" y="58" width="22" height="3" rx="1.5" fill="#ffffff" opacity="0.55"/>
+
+    <!-- Small accent dot (camel) - branding highlight -->
+    <circle cx="48" cy="72" r="4" fill="#C8A36A"/>
+  </g>
+
+  <!-- ═══════ WORDMARK ═══════ -->
+  <g transform="translate(150, 20)">
+    <!-- Single tight word "CorpDoc", two colors via tspan so glyphs flow -->
+    <text x="0" y="90"
+          font-family="Helvetica, Arial, sans-serif"
+          font-size="62"
+          font-weight="700"
+          letter-spacing="-2">
+      <tspan fill="#1F4129">Corp</tspan><tspan fill="#C8A36A">Doc</tspan>
+    </text>
+
+    <!-- Camel underline under the whole wordmark -->
+    <rect x="0" y="98" width="250" height="4" fill="#C8A36A"/>
+
+    <!-- Tagline below in slate (highlight) -->
+    <text x="2" y="120"
+          font-family="Helvetica, Arial, sans-serif"
+          font-size="11"
+          font-weight="400"
+          fill="#1E293B"
+          letter-spacing="3">
+      MARKDOWN · TO · CORPORATE · PDF
+    </text>
+  </g>
+</svg>

@@ -11,7 +11,7 @@ Basic usage:
     doc.render('report.md', output='report.pdf')
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.1"
 
 from corpdoc.api import CorpDoc
 from corpdoc.colors import extract_colors_from_svg, assign_roles

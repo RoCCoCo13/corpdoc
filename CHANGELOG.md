@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-04-25
+
+### Fixed
+- README image references switched from repo-relative paths to absolute
+  `raw.githubusercontent.com` URLs so the logo and the cover preview render
+  correctly on the PyPI project page (PyPI serves the README from its own
+  domain and cannot resolve `assets/...` paths against the GitHub repo).
+
+## [0.4.0] — 2026-04-25
+
+First public release on PyPI.
+
 ### Added
 - Native SVG rendering in PDFs via `svglib`. Logos can now be supplied as
   SVG, PNG, or both — CorpDoc picks the best available source.
@@ -28,6 +40,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Tests for the logo resolver, the new frontmatter parser, the `highlight`
   role (distinctness + fallback), and for landscape table rotation
   (verified via `pypdf`).
+- **Pastel cover surfaces with white logo card.** The `bold-band` and
+  `split` covers now fill their colored areas with a pastel tint of the
+  primary (lightened 78%) — derived from the logo, not hard-coded — and
+  render the logo on a white rounded card so the wordmark stays readable
+  regardless of which colors the logo uses.
+- **Edge-bleed fix on cover blocks.** Edge-to-edge color blocks
+  (classic band, bold-band fill, split top half) now overshoot every page
+  edge by 1 cm, eliminating the thin white strip on the bottom-left caused
+  by ReportLab's default 6 pt frame padding.
+- `SECURITY.md` with private reporting via GitHub Security Advisory + email.
+- `pip-audit` job in CI: fails the build on any vulnerability in a CorpDoc
+  runtime or dev dependency.
+- `dependabot.yml` for weekly version updates of pip and GitHub Actions.
 
 ### Changed
 - **Colors:** the CorpDoc brand palette moved from teal/coral to
@@ -45,6 +70,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   correctly overrides auto-extracted colors on a per-key basis (previously
   only applied when no SVG was present).
 - CLI writes UTF-8 to stdout/stderr so unicode glyphs render on Windows.
+- **Release pipeline:** PyPI publishing migrated from API-token auth to
+  Trusted Publishing (OIDC). No long-lived secret in the repo.
 
 ### Removed
 - Stray `=3.0` file at repo root (shell accident).
