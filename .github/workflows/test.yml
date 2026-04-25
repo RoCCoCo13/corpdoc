@@ -34,6 +34,36 @@ jobs:
       - name: Ruff format check
         run: ruff format --check src/ tests/
 
+  audit:
+    name: Audit dependencies (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
+
+      - name: Install project + pip-audit
+        # Installing the project first resolves the full dependency graph
+        # so pip-audit sees every transitive package, not just the direct
+        # ones declared in pyproject.toml.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pip-audit
+
+      - name: Audit installed dependencies
+        # `--ignore-vuln CVE-2026-3219` excludes a known issue in `pip`
+        # itself, which is part of the runner image and outside CorpDoc's
+        # control. Drop the ignore once setup-python ships a patched pip
+        # baseline. Vulnerabilities in any CorpDoc runtime/dev dependency
+        # will still fail this job.
+        run: pip-audit --progress-spinner off --ignore-vuln CVE-2026-3219
+
   test:
     name: Test (${{ matrix.os }} · py${{ matrix.python-version }})
     needs: lint
