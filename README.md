@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/corpdoc-logo.png" alt="CorpDoc" width="420"/>
+  <img src="assets/corpdoc-logo.svg" alt="CorpDoc" width="420"/>
 </p>
 
 <p align="center">

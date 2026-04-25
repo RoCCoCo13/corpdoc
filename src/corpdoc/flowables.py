@@ -15,11 +15,17 @@ following styles ship out of the box:
 - `minimal`   — Logo small, top-left. Title large and centered, with a thin
                 accent rule underneath. Everything in primary color on a
                 clean white page.
-- `bold-band` — Full-page accent background. Logo + title + subtitle stacked
-                and centered in white. Maximum brand impact.
-- `split`     — Top half filled with primary color (logo in white inside),
-                bottom half white with the title in primary. Corporate-modern
-                look popular in consulting decks.
+- `bold-band` — Pastel-tinted primary background covers the full page. The
+                logo sits on a white card (so the wordmark stays readable
+                regardless of which colors the logo uses); title + subtitle
+                in primary stack centered below it.
+- `split`     — Top half filled with a pastel-tinted primary (logo on a
+                white card), bottom half white with the title in primary.
+                Corporate-modern look popular in consulting decks.
+
+Edge-to-edge color blocks overshoot the frame's drawing area on every side
+(see `EDGE_OVERSHOOT`) so default Frame padding can never produce a thin
+white strip along the page edge.
 """
 
 from datetime import date
@@ -28,6 +34,8 @@ from reportlab.lib.colors import HexColor, white
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.platypus import Flowable
+
+from corpdoc.colors import lighten
 
 
 class HRLine(Flowable):
@@ -66,6 +74,13 @@ class CoverPageFlowable(Flowable):
 
     # Canonical list of shipped styles. `CorpDoc.render` validates against this.
     STYLES = ("classic", "minimal", "bold-band", "split")
+
+    # ReportLab's default Frame leaves a 6pt padding on every side, which
+    # would otherwise leave a thin white strip along the bottom-left of any
+    # edge-to-edge color block. Overshooting by 1 cm on every side covers the
+    # padding on left/bottom and lets the rect bleed safely past the right/top
+    # edge of the page.
+    EDGE_OVERSHOOT = 1 * cm
 
     def __init__(
         self,
@@ -121,11 +136,12 @@ class CoverPageFlowable(Flowable):
             parts.append(str(fecha))
         return "  |  ".join(parts)
 
-    def _draw_logo(self, canv, cx, cy, max_w, tint=None):
+    def _draw_logo(self, canv, cx, cy, max_w, on_card=False):
         """
         Draw the logo centered on (cx, cy) with max width max_w, preserving
-        aspect ratio. `tint` is unused (kept for future white-tint variants).
-        Returns (draw_w, draw_h) actually used.
+        aspect ratio. When `on_card` is True, paint a white rounded rectangle
+        behind the logo first so the wordmark stays readable on top of any
+        colored background. Returns (draw_w, draw_h) actually used.
         """
         if not self.logo:
             return (0, 0)
@@ -134,11 +150,36 @@ class CoverPageFlowable(Flowable):
             return (0, 0)
         sc = min(max_w / iw, 1)
         dw, dh = iw * sc, ih * sc
+        if on_card:
+            pad_x, pad_y = 18, 14
+            canv.setFillColor(white)
+            canv.roundRect(
+                cx - dw / 2 - pad_x,
+                cy - dh / 2 - pad_y,
+                dw + 2 * pad_x,
+                dh + 2 * pad_y,
+                10,
+                fill=1,
+                stroke=0,
+            )
         try:
             self.logo.draw(canv, cx - dw / 2, cy - dh / 2, dw, dh)
         except Exception:
             pass
         return (dw, dh)
+
+    def _bleed_rect(self, canv, frame_x, frame_y, x, y, w, h):
+        """
+        Paint a rectangle that bleeds past the page edges by EDGE_OVERSHOOT on
+        every side, regardless of where the requested rect sits inside the
+        frame. Used by every edge-to-edge color block so the default frame
+        padding (6 pt) never causes a thin white strip on left/bottom.
+
+        `(x, y, w, h)` describes the rect in frame-local coordinates,
+        treating (-frame_x, -frame_y) as the page's bottom-left corner.
+        """
+        o = self.EDGE_OVERSHOOT
+        canv.rect(x - o, y - o, w + 2 * o, h + 2 * o, fill=1, stroke=0)
 
     def _wrap_subtitle(self, text, max_chars=60):
         """Split subtitle into 1 or 2 lines by word boundary."""
@@ -169,7 +210,7 @@ class CoverPageFlowable(Flowable):
         block_top_y = block_bottom_y + block_h
 
         canv.setFillColor(accent)
-        canv.rect(-frame_x, block_bottom_y, page_w, block_h, fill=1, stroke=0)
+        self._bleed_rect(canv, frame_x, frame_y, -frame_x, block_bottom_y, page_w, block_h)
 
         avail_w = page_w - 4 * cm
         cx = avail_w / 2
@@ -254,41 +295,49 @@ class CoverPageFlowable(Flowable):
     def _draw_bold_band(self):
         canv = self.canv
         page_w, page_h = A4
-        primary = HexColor(self.C["primary"])
+        primary_hex = self.C["primary"]
+        primary = HexColor(primary_hex)
+        # Pastel tint of the primary so the cover doesn't drown the page in a
+        # saturated brand color. The full-saturation primary is reserved for
+        # the title text on top of the tint.
+        pastel = HexColor(lighten(primary_hex, 0.78))
 
         frame_x = 2 * cm
         frame_y = 3.2 * cm
         avail_w = page_w - 4 * cm
         cx = avail_w / 2
 
-        # Full page primary color.
-        canv.setFillColor(primary)
-        canv.rect(-frame_x, -frame_y, page_w, page_h, fill=1, stroke=0)
+        # Full page in pastel primary.
+        canv.setFillColor(pastel)
+        self._bleed_rect(canv, frame_x, frame_y, -frame_x, -frame_y, page_w, page_h)
 
-        # Logo centered upper third.
+        # Logo on a white card so the wordmark stays readable regardless of
+        # whether its glyphs share the primary hue.
         self._draw_logo(
             canv,
             cx,
             page_h * 0.68 - frame_y,
             220 * self.cover_scale,
+            on_card=True,
         )
 
-        # Title in white, centered.
+        # Title in primary, centered. Pastel + dark primary keeps strong
+        # contrast without the heaviness of white-on-saturated.
         title_y = page_h * 0.42 - frame_y
         canv.setFont("Helvetica-Bold", 30)
-        canv.setFillColor(white)
+        canv.setFillColor(primary)
         canv.drawCentredString(cx, title_y, self.title)
 
         if self.subtitle:
             canv.setFont("Helvetica", 14)
-            canv.setFillColor(HexColor("#ffffffdd"))
+            canv.setFillColor(HexColor(lighten(primary_hex, 0.15)))
             for i, ln in enumerate(self._wrap_subtitle(self.subtitle)):
                 canv.drawCentredString(cx, title_y - 32 - i * 18, ln)
 
         meta = self._meta_line()
         if meta:
             canv.setFont("Helvetica", 9)
-            canv.setFillColor(HexColor("#ffffffaa"))
+            canv.setFillColor(HexColor(lighten(primary_hex, 0.25)))
             canv.drawCentredString(cx, -frame_y + 30, meta)
 
     # ─────────────────────────────────────────────────────────────
@@ -298,7 +347,9 @@ class CoverPageFlowable(Flowable):
     def _draw_split(self):
         canv = self.canv
         page_w, page_h = A4
-        primary = HexColor(self.C["primary"])
+        primary_hex = self.C["primary"]
+        primary = HexColor(primary_hex)
+        pastel = HexColor(lighten(primary_hex, 0.78))
         highlight = HexColor(self.C.get("highlight", self.C["accent"]))
 
         frame_x = 2 * cm
@@ -306,20 +357,36 @@ class CoverPageFlowable(Flowable):
         avail_w = page_w - 4 * cm
         cx = avail_w / 2
 
-        # Top half filled with primary.
+        # Top half filled with pastel primary.
         top_h = page_h * 0.55
-        canv.setFillColor(primary)
-        canv.rect(-frame_x, page_h - top_h - frame_y, page_w, top_h, fill=1, stroke=0)
+        canv.setFillColor(pastel)
+        # Overshoot only on left/right/top so the split line stays sharp at
+        # the bottom edge of the colored half.
+        o = self.EDGE_OVERSHOOT
+        canv.rect(
+            -frame_x - o,
+            page_h - top_h - frame_y,
+            page_w + 2 * o,
+            top_h + o,
+            fill=1,
+            stroke=0,
+        )
 
         # Thin rule at the split line. Uses highlight so the split style
         # visibly exercises the 4th color role when the palette provides one.
         split_y = page_h - top_h - frame_y
         canv.setStrokeColor(highlight)
         canv.setLineWidth(3)
-        canv.line(-frame_x, split_y, page_w - frame_x, split_y)
+        canv.line(-frame_x - o, split_y, page_w - frame_x + o, split_y)
 
-        # Logo centered in upper (primary) half.
-        self._draw_logo(canv, cx, page_h - top_h * 0.5 - frame_y, 200 * self.cover_scale)
+        # Logo on a white card centered in the colored upper half.
+        self._draw_logo(
+            canv,
+            cx,
+            page_h - top_h * 0.5 - frame_y,
+            200 * self.cover_scale,
+            on_card=True,
+        )
 
         # Title in primary, centered in lower (white) half.
         title_y = split_y - 60
