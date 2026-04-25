@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/corpdoc-logo-card.svg" alt="CorpDoc" width="460"/>
+  <img src="https://raw.githubusercontent.com/RoCCoCo13/corpdoc/main/assets/corpdoc-logo-card.svg" alt="CorpDoc" width="460"/>
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 Drop in your logo and CorpDoc automatically derives your brand palette:
 
 <p align="center">
-  <img src="assets/preview-corpdoc-cover.png" alt="CorpDoc sample" width="60%"/>
+  <img src="https://raw.githubusercontent.com/RoCCoCo13/corpdoc/main/assets/preview-corpdoc-cover.png" alt="CorpDoc sample" width="60%"/>
   <br/>
   <em>CorpDoc self-demo — forest/camel palette from the CorpDoc logo</em>
 </p>

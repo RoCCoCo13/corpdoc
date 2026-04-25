@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-04-25
+
+### Fixed
+- README image references switched from repo-relative paths to absolute
+  `raw.githubusercontent.com` URLs so the logo and the cover preview render
+  correctly on the PyPI project page (PyPI serves the README from its own
+  domain and cannot resolve `assets/...` paths against the GitHub repo).
+
 ## [0.4.0] — 2026-04-25
 
 First public release on PyPI.
