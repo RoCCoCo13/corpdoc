@@ -265,7 +265,7 @@ def _inline_to_xml(children, mono_font="Courier"):
         elif t == "codespan":
             code = _xml_escape(child.get("raw", ""))
             parts.append(f'<font face="{mono_font}" size="9">{code}</font>')
-        elif t in ("softline_break", "line_break"):
+        elif t in _BREAK_TOKENS:
             parts.append(" ")
         elif t == "link":
             label = _inline_to_xml(child.get("children", []), mono_font)

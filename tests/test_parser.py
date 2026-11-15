@@ -179,3 +179,19 @@ def test_parse_indented_code_block():
     blocks = parse_blocks("Text\n\n    indented code\n")
     assert blocks[-1]["type"] == "code"
     assert "indented code" in blocks[-1]["content"]
+
+
+def test_soft_line_break_becomes_a_space():
+    blocks = parse_blocks("line one\nline two")
+    assert blocks[0]["text"] == "line one line two"
+
+
+def test_hard_line_break_becomes_a_space():
+    blocks = parse_blocks("line one  \nline two")
+    assert blocks[0]["text"] == "line one line two"
+
+
+def test_soft_line_break_inside_emphasis_and_list_item():
+    assert parse_blocks("**bold\ntext** end")[0]["text"] == "<b>bold text</b> end"
+    items = parse_blocks("- first\n  second")[0]["items"]
+    assert items[0]["text"] == "first second"
