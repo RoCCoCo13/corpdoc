@@ -115,16 +115,17 @@ class CorpDocTemplate(BaseDocTemplate):
     ReportLab's notify mechanism.
     """
 
+    # Leading pages without a page number (cover, version history). The TOC
+    # prints the same numbers as the page footers.
+    unnumbered_pages = 0
+
     def afterFlowable(self, flowable):
         if not isinstance(flowable, Paragraph):
             return
-        sname = flowable.style.name
-        if sname == "CH1":
-            self.notify("TOCEntry", (0, flowable.getPlainText(), self.page))
-        elif sname == "CH2":
-            self.notify("TOCEntry", (1, flowable.getPlainText(), self.page))
-        elif sname == "CH3":
-            self.notify("TOCEntry", (2, flowable.getPlainText(), self.page))
+        level = {"CH1": 0, "CH2": 1, "CH3": 2}.get(flowable.style.name)
+        if level is not None:
+            page = self.page - self.unnumbered_pages
+            self.notify("TOCEntry", (level, flowable.getPlainText(), page))
 
 
 class CorpDoc:
@@ -298,6 +299,7 @@ class CorpDoc:
         corp_data = self._build_corp_data(lang)
         # Cover and version history carry no header/footer and no page number.
         corp_data["unnumbered_pages"] = int(sections["cover"]) + int(sections["version_history"])
+        doc.unnumbered_pages = corp_data["unnumbered_pages"]
 
         canvases = []
 
@@ -313,7 +315,12 @@ class CorpDoc:
             if body:
                 elements.append(_BodyStart())
                 elements.extend(body)
-            doc.build(elements, canvasmaker=canvas_maker)
+            if sections["toc"]:
+                # The TOC is filled from the headings found while laying out
+                # the body, so it needs (at least) a second pass.
+                doc.multiBuild(elements, canvasmaker=canvas_maker)
+            else:
+                doc.build(elements, canvasmaker=canvas_maker)
         finally:
             self._mermaid.cleanup()
             self._mermaid = None
@@ -554,8 +561,12 @@ class CorpDoc:
             ),
         ]
 
+        # Same look as a level-1 heading, under another style name so the
+        # contents page does not list itself.
+        title_style = ParagraphStyle("CTocTitle", parent=S["CH1"])
+
         return [
-            Paragraph(t(lang, "toc_title"), S["CH1"]),
+            Paragraph(t(lang, "toc_title"), title_style),
             Spacer(1, 4 * mm),
             toc,
             Spacer(1, 4 * mm),
