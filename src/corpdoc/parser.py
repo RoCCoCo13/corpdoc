@@ -6,9 +6,14 @@ Produces typed block dicts consumed by api.py.
 """
 
 import re
+from urllib.parse import unquote
+
 import mistune
 import yaml
 
+
+# Deepest list level with its own style (0-based): three levels in total.
+MAX_LIST_LEVEL = 2
 
 # ── Block parsing ──────────────────────────────────────────────────────────
 
@@ -44,25 +49,42 @@ def parse_frontmatter(md_text):
     return meta, body
 
 
-def parse_blocks(md_text):
+def parse_blocks(md_text, mono_font="Courier"):
     """
     Parse markdown body into a list of typed blocks.
 
     Block types:
         {'type': 'h',       'level': 1-4,    'text': str}  <- ReportLab XML
         {'type': 'p',       'text': str}                    <- ReportLab XML
-        {'type': 'list',    'items': [{'text': str, 'level': 0|1}]}
+        {'type': 'list',    'ordered': bool, 'start': int,
+                            'items': [{'text': str, 'level': 0|1|2,
+                                       'ordered': bool, 'number': int|None}]}
         {'type': 'table',   'rows': [[str, ...], ...]}      <- cells are XML
         {'type': 'mermaid', 'content': str}
         {'type': 'code',    'lang': str, 'content': str}
         {'type': 'hr'}
+        {'type': 'image',   'src': str, 'alt': str}         <- plain text
+
+    A paragraph that contains only an image becomes an 'image' block. An
+    image mixed with text stays inline and is replaced by its alt text.
     """
     md = mistune.create_markdown(renderer=None, plugins=["table", "strikethrough"])
     tokens = md(md_text) or []
-    return _tokens_to_blocks(tokens)
+    return _tokens_to_blocks(tokens, _Inline(mono_font))
 
 
-def _tokens_to_blocks(tokens):
+class _Inline:
+    """Inline renderer bound to the font used for `code spans`."""
+
+    def __init__(self, mono_font="Courier"):
+        self.mono_font = mono_font
+
+    def __call__(self, children):
+        return _inline_to_xml(children, self.mono_font)
+
+
+def _tokens_to_blocks(tokens, _inline_to_xml=None):
+    _inline_to_xml = _inline_to_xml or _Inline()
     blocks = []
     for tok in tokens:
         t = tok["type"]
@@ -71,21 +93,26 @@ def _tokens_to_blocks(tokens):
             text = _inline_to_xml(tok.get("children", []))
             blocks.append({"type": "h", "level": level, "text": text})
         elif t == "paragraph":
+            image = _sole_image(tok.get("children", []))
+            if image is not None:
+                blocks.append(image)
+                continue
             text = _inline_to_xml(tok.get("children", []))
             blocks.append({"type": "p", "text": text})
         elif t == "block_code":
-            info = (tok["attrs"].get("info") or "").strip().lower()
+            info = ((tok.get("attrs") or {}).get("info") or "").strip().lower()
             content = tok.get("raw", "")
             if info == "mermaid":
                 blocks.append({"type": "mermaid", "content": content})
             else:
                 blocks.append({"type": "code", "lang": info, "content": content})
         elif t == "list":
-            items = _list_items(tok.get("children", []), depth=0)
+            ordered, start = _list_attrs(tok)
+            items = _list_items(tok.get("children", []), 0, ordered, start, _inline_to_xml)
             if items:
-                blocks.append({"type": "list", "items": items})
+                blocks.append({"type": "list", "ordered": ordered, "start": start, "items": items})
         elif t == "table":
-            rows = _table_rows(tok.get("children", []))
+            rows = _table_rows(tok.get("children", []), _inline_to_xml)
             if rows:
                 blocks.append({"type": "table", "rows": rows})
         elif t == "thematic_break":
@@ -94,21 +121,92 @@ def _tokens_to_blocks(tokens):
     return blocks
 
 
-def _list_items(children, depth):
+# Line-break tokens: mistune v3 names, plus the names used by older versions.
+_BREAK_TOKENS = ("softbreak", "linebreak", "softline_break", "line_break")
+
+
+def _sole_image(children):
+    """Return an image block if the inline children are exactly one image."""
+    meaningful = [
+        c
+        for c in children
+        if c["type"] not in _BREAK_TOKENS
+        and not (c["type"] == "text" and not c.get("raw", "").strip())
+    ]
+    if len(meaningful) != 1 or meaningful[0]["type"] != "image":
+        return None
+    tok = meaningful[0]
+    src = unquote((tok.get("attrs") or {}).get("url", ""))
+    if not src:
+        return None
+    return {"type": "image", "src": src, "alt": _plain_text(tok.get("children", []))}
+
+
+def _plain_text(children):
+    """Flatten inline tokens to plain text (no markup, no escaping)."""
+    parts = []
+    for child in children:
+        if "children" in child:
+            parts.append(_plain_text(child["children"]))
+        elif child["type"] in _BREAK_TOKENS:
+            parts.append(" ")
+        elif child["type"] != "raw_html":
+            parts.append(child.get("raw", ""))
+    return "".join(parts)
+
+
+def _list_attrs(tok):
+    """Return (ordered, start) for a mistune list token."""
+    attrs = tok.get("attrs") or {}
+    ordered = bool(attrs.get("ordered"))
+    start = attrs.get("start")
+    return ordered, (start if isinstance(start, int) else 1)
+
+
+def _list_items(children, depth, ordered=False, start=1, _inline_to_xml=None):
+    """
+    Flatten a (possibly nested) list into items. Every item carries the
+    kind of the list it belongs to; numbering restarts in each nested list.
+    """
+    _inline_to_xml = _inline_to_xml or _Inline()
     items = []
+    number = start
     for item in children:
         if item["type"] != "list_item":
             continue
+        numbered = False
         for child in item.get("children", []):
             if child["type"] in ("block_text", "paragraph"):
                 text = _inline_to_xml(child.get("children", []))
-                items.append({"text": text, "level": min(depth, 1)})
+                entry = {
+                    "text": text,
+                    "level": min(depth, MAX_LIST_LEVEL),
+                    "ordered": ordered,
+                    "number": None,
+                }
+                # Only the first paragraph of an item gets the number.
+                if ordered and not numbered:
+                    entry["number"] = number
+                    numbered = True
+                items.append(entry)
             elif child["type"] == "list":
-                items.extend(_list_items(child.get("children", []), depth + 1))
+                sub_ordered, sub_start = _list_attrs(child)
+                items.extend(
+                    _list_items(
+                        child.get("children", []),
+                        depth + 1,
+                        sub_ordered,
+                        sub_start,
+                        _inline_to_xml,
+                    )
+                )
+        if ordered:
+            number += 1
     return items
 
 
-def _table_rows(children):
+def _table_rows(children, _inline_to_xml=None):
+    _inline_to_xml = _inline_to_xml or _Inline()
     rows = []
     for section in children:
         if section["type"] == "table_head":
@@ -141,7 +239,16 @@ def _xml_escape(text):
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _inline_to_xml(children):
+# Link targets that are rendered as clickable links.
+_LINKABLE_RE = re.compile(r"^(https?://|ftp://|mailto:|tel:)", re.IGNORECASE)
+
+
+def _attr_escape(text):
+    """Escape a value for use inside a double-quoted XML attribute."""
+    return _xml_escape(text).replace('"', "&quot;").replace("'", "&#39;")
+
+
+def _inline_to_xml(children, mono_font="Courier"):
     """Recursively convert inline AST tokens to ReportLab XML."""
     parts = []
     for child in children:
@@ -149,26 +256,39 @@ def _inline_to_xml(children):
         if t == "text":
             parts.append(_xml_escape(child.get("raw", "")))
         elif t == "strong":
-            parts.append("<b>" + _inline_to_xml(child.get("children", [])) + "</b>")
+            parts.append("<b>" + _inline_to_xml(child.get("children", []), mono_font) + "</b>")
         elif t == "emphasis":
-            parts.append("<i>" + _inline_to_xml(child.get("children", [])) + "</i>")
+            parts.append("<i>" + _inline_to_xml(child.get("children", []), mono_font) + "</i>")
         elif t == "strong_em":
-            inner = _inline_to_xml(child.get("children", []))
+            inner = _inline_to_xml(child.get("children", []), mono_font)
             parts.append(f"<b><i>{inner}</i></b>")
         elif t == "codespan":
             code = _xml_escape(child.get("raw", ""))
-            parts.append(f'<font face="Courier" size="9">{code}</font>')
-        elif t in ("softline_break", "line_break"):
+            parts.append(f'<font face="{mono_font}" size="9">{code}</font>')
+        elif t in _BREAK_TOKENS:
             parts.append(" ")
         elif t == "link":
-            parts.append(_inline_to_xml(child.get("children", [])))
+            label = _inline_to_xml(child.get("children", []), mono_font)
+            url = ((child.get("attrs") or {}).get("url") or "").strip()
+            if _LINKABLE_RE.match(url):
+                parts.append(f'<a href="{_attr_escape(url)}">{label}</a>')
+            else:
+                # Anchors and relative paths have no target inside the PDF
+                # (ReportLab would fail on the undefined destination), and
+                # other schemes are not worth making clickable.
+                parts.append(label)
         elif t == "image":
-            parts.append(_xml_escape(child.get("attrs", {}).get("alt", "")))
+            # Inline image: only its alt text is kept. mistune v3 stores the
+            # alt text as child tokens (older versions used attrs["alt"]).
+            alt = _plain_text(child.get("children", [])) or (child.get("attrs") or {}).get(
+                "alt", ""
+            )
+            parts.append(_xml_escape(alt))
         elif t == "raw_html":
             pass
         else:
             if "children" in child:
-                parts.append(_inline_to_xml(child["children"]))
+                parts.append(_inline_to_xml(child["children"], mono_font))
             elif "raw" in child:
                 parts.append(_xml_escape(child["raw"]))
     return "".join(parts)

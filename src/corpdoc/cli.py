@@ -103,6 +103,18 @@ defaults:
   language: "auto"           # auto|en|es|de|fr
   version: "1.0"
   author: ""
+  # max_pages: 20            # optional: warn when the body is longer
+
+sections:
+  # Front pages. A document can override these in its frontmatter.
+  cover: true
+  version_history: true
+  toc: true
+
+fonts:
+  # "helvetica" — PDF built-in fonts (Western European text)
+  # "dejavu"    — bundled DejaVu fonts: Greek, Cyrillic, formulas, subscripts
+  family: "helvetica"
 
 tables:
   # Tables with this many columns (or more) are auto-rotated to a landscape
@@ -134,6 +146,13 @@ def cmd_render(args):
     output = args.output or Path(args.md).with_suffix(".pdf")
     result = doc.render(args.md, output=str(output))
     print(f"\n✓ PDF generated: {result}")
+    print(f"  Pages: {result.total_pages} total, {result.body_pages} body")
+
+    if result.over_limit and args.strict:
+        sys.exit(
+            f"Error: body has {result.body_pages} pages, limit is "
+            f"max_pages = {result.max_pages} (--strict)."
+        )
 
 
 def cmd_colors(args):
@@ -261,6 +280,11 @@ def main():
     p_render.add_argument("md", help="Markdown file")
     p_render.add_argument("--config", default="corpdoc.yml", help="Config YAML path")
     p_render.add_argument("--output", default="", help="Output PDF path")
+    p_render.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit with a non-zero code if the body exceeds max_pages (default: warn only)",
+    )
     p_render.set_defaults(func=cmd_render)
 
     # colors

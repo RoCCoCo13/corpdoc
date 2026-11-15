@@ -38,15 +38,58 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+from reportlab.platypus.doctemplate import ActionFlowable
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from corpdoc.colors import extract_colors_from_svg, assign_roles
-from corpdoc.parser import parse_frontmatter, parse_blocks, detect_language
+from corpdoc.parser import _xml_escape, parse_frontmatter, parse_blocks, detect_language
 from corpdoc.styles import build_styles
 from corpdoc.flowables import HRLine, CoverPageFlowable
+from corpdoc._config import as_bool as _as_bool
 from corpdoc.canvas import CorpCanvas
+from corpdoc.fonts import resolve_fonts, warn_unsupported
 from corpdoc.i18n import t
+from corpdoc.images import build_image_flowables
 from corpdoc.logo import Logo
+from corpdoc.mermaid import PNG_SCALE, MermaidRenderer
+
+# Page margins shared by the portrait and landscape templates.
+LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, BOTTOM_MARGIN = 2 * cm, 2 * cm, 2.2 * cm, 3.2 * cm
+# ReportLab frames keep a 6 pt padding on every side.
+FRAME_PADDING = 6
+
+
+class RenderResult(str):
+    """
+    Return value of `CorpDoc.render`.
+
+    It is the output path (a plain `str` subclass, so existing code that
+    treats the result as a path keeps working) with the page counts of the
+    generated PDF attached:
+
+        total_pages: every page in the PDF.
+        body_pages:  pages after cover / version history / table of contents.
+        max_pages:   the body-page limit in effect, or None.
+        over_limit:  True when `body_pages` exceeds `max_pages`.
+    """
+
+    def __new__(cls, path, total_pages=0, body_pages=0, max_pages=None):
+        obj = super().__new__(cls, path)
+        obj.total_pages = total_pages
+        obj.body_pages = body_pages
+        obj.max_pages = max_pages
+        return obj
+
+    @property
+    def over_limit(self):
+        return self.max_pages is not None and self.body_pages > self.max_pages
+
+
+class _BodyStart(ActionFlowable):
+    """Zero-size marker: records the page on which the document body starts."""
+
+    def apply(self, doc):
+        doc.body_start_page = max(1, doc.page)
 
 
 class CorpDocTemplate(BaseDocTemplate):
@@ -57,16 +100,19 @@ class CorpDocTemplate(BaseDocTemplate):
     ReportLab's notify mechanism.
     """
 
+    # Leading pages without a page number (cover, version history). The TOC
+    # prints the same numbers as the page footers.
+    unnumbered_pages = 0
+
     def afterFlowable(self, flowable):
         if not isinstance(flowable, Paragraph):
             return
-        sname = flowable.style.name
-        if sname == "CH1":
-            self.notify("TOCEntry", (0, flowable.getPlainText(), self.page))
-        elif sname == "CH2":
-            self.notify("TOCEntry", (1, flowable.getPlainText(), self.page))
-        elif sname == "CH3":
-            self.notify("TOCEntry", (2, flowable.getPlainText(), self.page))
+        level = {"CH1": 0, "CH2": 1, "CH3": 2}.get(flowable.style.name)
+        if level is not None:
+            page = self.page - self.unnumbered_pages
+            # The TOC parses each entry as paragraph markup, so the plain
+            # text has to be escaped again.
+            self.notify("TOCEntry", (level, _xml_escape(flowable.getPlainText()), page))
 
 
 class CorpDoc:
@@ -96,6 +142,13 @@ class CorpDoc:
           language: "auto"|en|es|de|fr   # default: auto
           version: "1.0"
           author: str
+          max_pages: int            # optional body-page limit
+
+    Optional blocks (see docs/configuration.md):
+        sections: {cover, version_history, toc}   # front pages, default true
+        fonts:    {family: helvetica|dejavu|{regular: path, ...}}
+        mermaid:  {enabled, timeout, puppeteer_config}
+        cover, tables, colors
     """
 
     def __init__(self, config):
@@ -133,26 +186,45 @@ class CorpDoc:
                 file=sys.stderr,
             )
 
-        self.styles = build_styles(self.colors)
+        self.fonts = resolve_fonts(self.cfg)
+        self.styles = build_styles(self.colors, self.fonts)
 
-    def render(self, md_input, output="output.pdf"):
+        # Set for the duration of a render() call (see MermaidRenderer).
+        self._mermaid = None
+
+        # Page counts of the most recent render() call.
+        self.total_pages = None
+        self.body_pages = None
+
+    def render(self, md_input, output="output.pdf", base_dir=None):
         """
         Render a Markdown file or string to PDF.
 
         Args:
             md_input: Path to .md file, or markdown text as string.
             output: Output PDF path.
+            base_dir: Directory that relative image paths are resolved
+                against. Defaults to the Markdown file's directory, or to
+                the current directory when `md_input` is a string.
 
         Returns:
-            Path to the generated PDF.
+            Path to the generated PDF, as a `RenderResult`: a `str` that
+            also carries `total_pages`, `body_pages`, `max_pages` and
+            `over_limit`. The two counts are mirrored on this object as
+            `self.total_pages` / `self.body_pages`.
         """
         if os.path.exists(str(md_input)):
             md_text = Path(md_input).read_text(encoding="utf-8")
+            default_base = os.path.dirname(os.path.abspath(str(md_input)))
         else:
             md_text = str(md_input)
+            default_base = os.getcwd()
+        self._base_dir = str(base_dir) if base_dir else default_base
 
         meta, body = parse_frontmatter(md_text)
-        blocks = parse_blocks(body)
+        blocks = parse_blocks(body, mono_font=self.fonts["mono"])
+        # One warning per render for characters that would come out as boxes.
+        warn_unsupported(md_text, self.fonts)
 
         lang_cfg = self.cfg.get("defaults", {}).get("language", "auto")
         lang = detect_language(body) if lang_cfg == "auto" else lang_cfg
@@ -160,7 +232,7 @@ class CorpDoc:
         title = self._extract_title(meta, blocks)
         subtitle = self._extract_subtitle(meta, blocks)
 
-        left_m, right_m, top_m, bottom_m = 2 * cm, 2 * cm, 2.2 * cm, 3.2 * cm
+        left_m, right_m, top_m, bottom_m = LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, BOTTOM_MARGIN
         portrait_size = A4
         landscape_size = landscape(A4)
 
@@ -173,6 +245,9 @@ class CorpDoc:
             bottomMargin=bottom_m,
             title=title,
             author=meta.get("autor", meta.get("author", "")),
+            # With an embedded family, keep pages from referencing Helvetica
+            # as the canvas start-up font (None = ReportLab's default).
+            initialFontName=None if self.fonts["builtin"] else self.fonts["regular"],
         )
 
         def _make_frame(pw, ph, frame_id):
@@ -199,19 +274,57 @@ class CorpDoc:
             ]
         )
 
-        elements = []
-        elements.extend(self._build_cover(title, subtitle, meta, lang))
-        elements.extend(self._build_version_history(meta, lang))
-        elements.extend(self._build_toc(lang))
-        elements.extend(self._build_body(blocks))
+        sections = self._resolve_sections(meta)
 
+        elements = []
+        if sections["cover"]:
+            elements.extend(self._build_cover(title, subtitle, meta, lang))
+        if sections["version_history"]:
+            elements.extend(self._build_version_history(meta, lang))
+        if sections["toc"]:
+            elements.extend(self._build_toc(lang))
         corp_data = self._build_corp_data(lang)
+        # Cover and version history carry no header/footer and no page number.
+        corp_data["unnumbered_pages"] = int(sections["cover"]) + int(sections["version_history"])
+        doc.unnumbered_pages = corp_data["unnumbered_pages"]
+
+        canvases = []
 
         def canvas_maker(filename, pagesize=A4, **kw):
-            return CorpCanvas(filename, pagesize=pagesize, _corp=corp_data, **kw)
+            canvases.append(CorpCanvas(filename, pagesize=pagesize, _corp=corp_data, **kw))
+            return canvases[-1]
 
-        doc.build(elements, canvasmaker=canvas_maker)
-        return output
+        # Rendered Mermaid diagrams are temp files that ReportLab reads
+        # during build(), so they are removed only once the build is over.
+        self._mermaid = MermaidRenderer(self.cfg)
+        try:
+            body = self._build_body(blocks)
+            if body:
+                body = self._open_body_in_landscape(doc, elements, body)
+                elements.append(_BodyStart())
+                elements.extend(body)
+            if sections["toc"]:
+                # The TOC is filled from the headings found while laying out
+                # the body, so it needs (at least) a second pass.
+                doc.multiBuild(elements, canvasmaker=canvas_maker)
+            else:
+                doc.build(elements, canvasmaker=canvas_maker)
+        finally:
+            self._mermaid.cleanup()
+            self._mermaid = None
+
+        total = canvases[-1].page_count if canvases else 0
+        body_start = getattr(doc, "body_start_page", None)
+        body_pages = max(0, total - body_start + 1) if body_start else 0
+        result = RenderResult(output, total, body_pages, self._resolve_max_pages(meta))
+        self.total_pages, self.body_pages = total, body_pages
+        if result.over_limit:
+            print(
+                f"Warning: document body has {body_pages} pages, "
+                f"more than max_pages = {result.max_pages}.",
+                file=sys.stderr,
+            )
+        return result
 
     # ─────────────────────────────────────────────────
     # Helpers
@@ -244,6 +357,100 @@ class CorpDoc:
                     return self._plain(blocks[1]["text"])
         return ""
 
+    @staticmethod
+    def _open_body_in_landscape(doc, front, body):
+        """
+        Avoid a blank page when the body opens with a landscape table.
+
+        A landscape table starts with "switch template + page break". As the
+        first thing in the body that break would leave an empty portrait
+        page, so the switch is moved to where the body's first page starts:
+        before the page break that ends the front pages, or, without front
+        pages, by making landscape the template of the first page.
+        """
+        opens_wide = (
+            len(body) > 2
+            and isinstance(body[0], NextPageTemplate)
+            and isinstance(body[1], PageBreak)
+        )
+        if not opens_wide:
+            return body
+        if not front:
+            doc.pageTemplates.reverse()
+            return body[2:]
+        if isinstance(front[-1], PageBreak):
+            front.insert(len(front) - 1, body[0])
+            return body[2:]
+        return body
+
+    SECTION_KEYS = ("cover", "version_history", "toc")
+
+    def _resolve_sections(self, meta):
+        """
+        Which front pages to emit. Order of precedence: frontmatter
+        (`sections:` block, or the same keys at top level) > config
+        `sections:` > default (all enabled).
+        """
+        cfg_sections = self.cfg.get("sections")
+        if cfg_sections is None:
+            cfg_sections = {}
+        elif not isinstance(cfg_sections, dict):
+            print(
+                "Warning: config 'sections' must be a mapping of cover / version_history / toc "
+                f"(got {cfg_sections!r}); using the defaults.",
+                file=sys.stderr,
+            )
+            cfg_sections = {}
+        fm_sections = meta.get("sections")
+        if not isinstance(fm_sections, dict):
+            fm_sections = {}
+
+        resolved = {}
+        for key in self.SECTION_KEYS:
+            value = True
+            for source in (cfg_sections, meta, fm_sections):
+                if key in source and not isinstance(source[key], (dict, list)):
+                    value = _as_bool(source[key], value)
+            resolved[key] = value
+        return resolved
+
+    def _resolve_max_pages(self, meta):
+        """
+        Body-page limit: frontmatter `max_pages` > `defaults.max_pages` > None.
+
+        An invalid value prints a warning and is skipped, so a typo in one
+        document's frontmatter does not remove the limit set in the config.
+        """
+        sources = (
+            ("frontmatter", meta.get("max_pages")),
+            ("config defaults", (self.cfg.get("defaults") or {}).get("max_pages")),
+        )
+        for origin, raw in sources:
+            if raw in (None, ""):
+                continue
+            limit = self._parse_max_pages(raw)
+            if limit is not None:
+                return limit
+            print(
+                f"Warning: max_pages must be a positive whole number (got {raw!r} in the "
+                f"{origin}); value ignored.",
+                file=sys.stderr,
+            )
+        return None
+
+    @staticmethod
+    def _parse_max_pages(raw):
+        """Return `raw` as a positive int, or None. Accepts 12, "12" and 12.0."""
+        if isinstance(raw, bool):
+            return None
+        try:
+            number = float(str(raw).strip())
+        except ValueError:
+            return None
+        if number < 1 or number != int(number):
+            return None
+        return int(number)
+
     def _build_corp_data(self, lang):
         company = self.cfg.get("company", {})
         footer = self.cfg.get("footer", {})
@@ -259,6 +466,7 @@ class CorpDoc:
         data["address"] = footer.get("address", "")
         data["fields"] = footer.get("fields", [])
         data["header_scale"] = logo.get("header_scale", 0.45)
+        data["fonts"] = self.fonts
         return data
 
     # ─────────────────────────────────────────────────
@@ -291,6 +499,7 @@ class CorpDoc:
                 defaults=self.cfg.get("defaults", {}),
                 style=style,
                 cover_cfg=cover_cfg,
+                fonts=self.fonts,
             ),
             PageBreak(),
         ]
@@ -333,6 +542,7 @@ class CorpDoc:
         tbl.setStyle(
             TableStyle(
                 [
+                    ("FONTNAME", (0, 0), (-1, -1), self.fonts["regular"]),
                     ("BACKGROUND", (0, 0), (-1, 0), HexColor(c["primary"])),
                     ("TEXTCOLOR", (0, 0), (-1, 0), white),
                     ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#cccccc")),
@@ -353,10 +563,18 @@ class CorpDoc:
         S = self.styles
 
         toc = TableOfContents()
+        if not self.fonts["builtin"]:
+            # The TOC lays itself out in an internal table with its own cell font.
+            toc.tableStyle = TableStyle(
+                [
+                    *toc.tableStyle.getCommands(),
+                    ("FONTNAME", (0, 0), (-1, -1), self.fonts["regular"]),
+                ]
+            )
         toc.levelStyles = [
             ParagraphStyle(
                 "TOCEntry1",
-                fontName="Helvetica-Bold",
+                fontName=self.fonts["bold"],
                 fontSize=11,
                 textColor=HexColor(c["primary"]),
                 leftIndent=0,
@@ -366,7 +584,7 @@ class CorpDoc:
             ),
             ParagraphStyle(
                 "TOCEntry2",
-                fontName="Helvetica",
+                fontName=self.fonts["regular"],
                 fontSize=10,
                 textColor=HexColor(c["text"]),
                 leftIndent=8 * mm,
@@ -375,7 +593,7 @@ class CorpDoc:
             ),
             ParagraphStyle(
                 "TOCEntry3",
-                fontName="Helvetica",
+                fontName=self.fonts["regular"],
                 fontSize=9,
                 textColor=HexColor("#666666"),
                 leftIndent=16 * mm,
@@ -384,8 +602,12 @@ class CorpDoc:
             ),
         ]
 
+        # Same look as a level-1 heading, under another style name so the
+        # contents page does not list itself.
+        title_style = ParagraphStyle("CTocTitle", parent=S["CH1"])
+
         return [
-            Paragraph(t(lang, "toc_title"), S["CH1"]),
+            Paragraph(t(lang, "toc_title"), title_style),
             Spacer(1, 4 * mm),
             toc,
             Spacer(1, 4 * mm),
@@ -411,8 +633,15 @@ class CorpDoc:
                 for item in b["items"]:
                     text = item["text"] if isinstance(item, dict) else item
                     level = item.get("level", 0) if isinstance(item, dict) else 0
-                    style = S["CBullet2"] if level > 0 else S["CBullet"]
-                    els.append(Paragraph(f"•  {text}", style))
+                    style = S[("CBullet", "CBullet2", "CBullet3")[max(0, min(level, 2))]]
+                    ordered = isinstance(item, dict) and item.get("ordered")
+                    number = item.get("number") if ordered else None
+                    if number is not None:
+                        text = f"{number}.  {text}"
+                    elif not ordered:
+                        text = f"•  {text}"
+                    # else: continuation paragraph of a numbered item, no marker
+                    els.append(Paragraph(text, style))
                 els.append(Spacer(1, 2 * mm))
             elif tp == "table":
                 if self._needs_landscape(b["rows"]):
@@ -424,6 +653,10 @@ class CorpDoc:
                 else:
                     els.extend(self._build_table(b["rows"]))
             elif tp == "mermaid":
+                png = self._mermaid.render(b["content"]) if self._mermaid else None
+                if png:
+                    els.extend(self._build_image(png, "", scale=1 / PNG_SCALE))
+                    continue
                 content = b["content"].replace("\n", "<br/>")
                 els.append(Paragraph(f"<b>[ Diagram ]</b><br/><br/>{content}", S["CMermaid"]))
             elif tp == "code":
@@ -434,7 +667,16 @@ class CorpDoc:
                 els.append(Paragraph(content, S["CCode"]))
             elif tp == "hr":
                 els.append(HRLine(100, 0.5, HexColor(c["secondary"]), 4 * mm, 4 * mm))
+            elif tp == "image":
+                els.extend(self._build_image(b["src"], b.get("alt", "")))
         return els
+
+    def _build_image(self, src, alt, scale=1.0):
+        """Block image scaled to the portrait frame, with the alt text as caption."""
+        max_w = A4[0] - LEFT_MARGIN - RIGHT_MARGIN - 2 * FRAME_PADDING
+        max_h = A4[1] - TOP_MARGIN - BOTTOM_MARGIN - 2 * FRAME_PADDING
+        base_dir = getattr(self, "_base_dir", None) or os.getcwd()
+        return build_image_flowables(src, alt, base_dir, max_w, max_h, self.styles, scale=scale)
 
     def _needs_landscape(self, rows):
         """
@@ -463,6 +705,8 @@ class CorpDoc:
         tbl = Table(data, colWidths=[avail / n] * n, repeatRows=1)
 
         style = [
+            # Cells are Paragraphs, but the table still selects its own cell font.
+            ("FONTNAME", (0, 0), (-1, -1), self.fonts["regular"]),
             ("BACKGROUND", (0, 0), (-1, 0), HexColor(c["primary"])),
             ("TEXTCOLOR", (0, 0), (-1, 0), white),
             ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#cccccc")),

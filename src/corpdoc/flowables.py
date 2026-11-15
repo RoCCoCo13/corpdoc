@@ -36,6 +36,7 @@ from reportlab.lib.units import cm
 from reportlab.platypus import Flowable
 
 from corpdoc.colors import lighten
+from corpdoc.fonts import BUILTIN_FONTS
 
 
 class HRLine(Flowable):
@@ -95,6 +96,7 @@ class CoverPageFlowable(Flowable):
         defaults,
         style="classic",
         cover_cfg=None,
+        fonts=None,
     ):
         Flowable.__init__(self)
         self.title = title
@@ -108,6 +110,7 @@ class CoverPageFlowable(Flowable):
         self.defaults = defaults
         self.style = style if style in self.STYLES else "classic"
         self.cover_cfg = cover_cfg or {}
+        self.F = fonts or BUILTIN_FONTS
 
     def wrap(self, aW, aH):
         return (aW, aH)
@@ -221,19 +224,19 @@ class CoverPageFlowable(Flowable):
 
         # Title (white on accent band).
         title_y = block_top_y - 50
-        canv.setFont("Helvetica-Bold", 24)
+        canv.setFont(self.F["bold"], 24)
         canv.setFillColor(white)
         canv.drawCentredString(cx, title_y, self.title)
 
         if self.subtitle:
-            canv.setFont("Helvetica", 13)
+            canv.setFont(self.F["regular"], 13)
             canv.setFillColor(white)
             for i, ln in enumerate(self._wrap_subtitle(self.subtitle)):
                 canv.drawCentredString(cx, title_y - 28 - i * 16, ln)
 
         meta = self._meta_line()
         if meta:
-            canv.setFont("Helvetica", 8)
+            canv.setFont(self.F["regular"], 8)
             canv.setFillColor(HexColor("#ffffffcc"))
             canv.drawCentredString(cx, block_bottom_y + 30, meta)
 
@@ -266,7 +269,7 @@ class CoverPageFlowable(Flowable):
         # Title: large, centered, vertical ~60% of page.
         cx = avail_w / 2
         title_y = page_h * 0.55 - frame_y
-        canv.setFont("Helvetica-Bold", 32)
+        canv.setFont(self.F["bold"], 32)
         canv.setFillColor(primary)
         canv.drawCentredString(cx, title_y, self.title)
 
@@ -277,14 +280,14 @@ class CoverPageFlowable(Flowable):
         canv.line(cx - 60, rule_y, cx + 60, rule_y)
 
         if self.subtitle:
-            canv.setFont("Helvetica", 14)
+            canv.setFont(self.F["regular"], 14)
             canv.setFillColor(HexColor("#555555"))
             for i, ln in enumerate(self._wrap_subtitle(self.subtitle)):
                 canv.drawCentredString(cx, rule_y - 26 - i * 18, ln)
 
         meta = self._meta_line()
         if meta:
-            canv.setFont("Helvetica", 9)
+            canv.setFont(self.F["regular"], 9)
             canv.setFillColor(HexColor("#888888"))
             canv.drawCentredString(cx, -frame_y + 30, meta)
 
@@ -324,19 +327,19 @@ class CoverPageFlowable(Flowable):
         # Title in primary, centered. Pastel + dark primary keeps strong
         # contrast without the heaviness of white-on-saturated.
         title_y = page_h * 0.42 - frame_y
-        canv.setFont("Helvetica-Bold", 30)
+        canv.setFont(self.F["bold"], 30)
         canv.setFillColor(primary)
         canv.drawCentredString(cx, title_y, self.title)
 
         if self.subtitle:
-            canv.setFont("Helvetica", 14)
+            canv.setFont(self.F["regular"], 14)
             canv.setFillColor(HexColor(lighten(primary_hex, 0.15)))
             for i, ln in enumerate(self._wrap_subtitle(self.subtitle)):
                 canv.drawCentredString(cx, title_y - 32 - i * 18, ln)
 
         meta = self._meta_line()
         if meta:
-            canv.setFont("Helvetica", 9)
+            canv.setFont(self.F["regular"], 9)
             canv.setFillColor(HexColor(lighten(primary_hex, 0.25)))
             canv.drawCentredString(cx, -frame_y + 30, meta)
 
@@ -390,18 +393,18 @@ class CoverPageFlowable(Flowable):
 
         # Title in primary, centered in lower (white) half.
         title_y = split_y - 60
-        canv.setFont("Helvetica-Bold", 26)
+        canv.setFont(self.F["bold"], 26)
         canv.setFillColor(primary)
         canv.drawCentredString(cx, title_y, self.title)
 
         if self.subtitle:
-            canv.setFont("Helvetica", 13)
+            canv.setFont(self.F["regular"], 13)
             canv.setFillColor(HexColor("#444444"))
             for i, ln in enumerate(self._wrap_subtitle(self.subtitle)):
                 canv.drawCentredString(cx, title_y - 26 - i * 16, ln)
 
         meta = self._meta_line()
         if meta:
-            canv.setFont("Helvetica", 9)
+            canv.setFont(self.F["regular"], 9)
             canv.setFillColor(HexColor("#888888"))
             canv.drawCentredString(cx, -frame_y + 30, meta)

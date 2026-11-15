@@ -9,6 +9,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.colors import HexColor
 from reportlab.lib.units import cm
 
+from corpdoc.fonts import BUILTIN_FONTS
 from corpdoc.i18n import t
 
 
@@ -61,13 +62,15 @@ def brand_split_inline(text, n, accent_hex, primary_hex):
 class CorpCanvas(canvas.Canvas):
     """
     Canvas that draws corporate header and footer on every page except
-    the cover (page 1) and version history (page 2).
+    the leading unnumbered pages: cover and version history, when present
+    (`_corp["unnumbered_pages"]`, default 2).
     """
 
     def __init__(self, *args, **kwargs):
         self._corp = kwargs.pop("_corp", {})
         super().__init__(*args, **kwargs)
         self._page_states = []
+        self.page_count = 0
 
     def showPage(self):
         self._page_states.append(dict(self.__dict__))
@@ -79,15 +82,18 @@ class CorpCanvas(canvas.Canvas):
             self.__dict__.update(state)
             self._draw_header_footer(total)
             canvas.Canvas.showPage(self)
+        # Set after the loop: restoring each page state rewinds __dict__.
+        self.page_count = total
         canvas.Canvas.save(self)
 
     def _draw_header_footer(self, total_pages):
         pn = self._pageNumber
-        # Skip cover (page 1) and version history (page 2)
-        if pn <= 2:
+        corp = self._corp
+        # Skip cover and version history (whichever of them are enabled)
+        skip = corp.get("unnumbered_pages", 2)
+        if pn <= skip:
             return
 
-        corp = self._corp
         w, h = self._pagesize
         accent = corp.get("accent", "#b9885a")
         primary = corp.get("primary", "#2e1e19")
@@ -98,9 +104,10 @@ class CorpCanvas(canvas.Canvas):
         self._draw_header(w, h, corp, accent, primary, split_n)
 
         # ── FOOTER ──
-        self._draw_footer(w, h, corp, accent, primary, split_n, pn, total_pages, lang)
+        self._draw_footer(w, h, corp, accent, primary, split_n, pn - skip, total_pages - skip, lang)
 
     def _draw_header(self, w, h, corp, accent, primary, split_n):
+        fonts = corp.get("fonts") or BUILTIN_FONTS
         # Logo right-aligned
         logo = corp.get("logo")
         header_scale = corp.get("header_scale", 0.45)
@@ -122,13 +129,13 @@ class CorpCanvas(canvas.Canvas):
             prefix = corp.get("tagline_prefix", "")
             x_cursor = 2 * cm
             if prefix:
-                self.setFont("Helvetica-Oblique", 8)
+                self.setFont(fonts["italic"], 8)
                 self.setFillColor(HexColor(accent))
                 self.drawString(x_cursor, h - 1.3 * cm, prefix)
-                x_cursor += self.stringWidth(prefix, "Helvetica-Oblique", 8) + 8
+                x_cursor += self.stringWidth(prefix, fonts["italic"], 8) + 8
 
             brand_split_draw(
-                self, x_cursor, h - 1.3 * cm, tagline, split_n, accent, primary, "Helvetica", 7
+                self, x_cursor, h - 1.3 * cm, tagline, split_n, accent, primary, fonts["regular"], 7
             )
 
         # Header accent line
@@ -138,6 +145,7 @@ class CorpCanvas(canvas.Canvas):
 
     def _draw_footer(self, w, h, corp, accent, primary, split_n, pn, total, lang):
         footer_y = 2.6 * cm
+        fonts = corp.get("fonts") or BUILTIN_FONTS
 
         # Footer accent line
         self.setStrokeColor(HexColor(accent))
@@ -154,7 +162,7 @@ class CorpCanvas(canvas.Canvas):
             line1 = company_name
             if address:
                 line1 += f"    |    {address}"
-            total_w = self.stringWidth(line1, "Helvetica", 6.5)
+            total_w = self.stringWidth(line1, fonts["regular"], 6.5)
             start_x = cx - total_w / 2
 
             end_x = brand_split_draw(
@@ -165,11 +173,11 @@ class CorpCanvas(canvas.Canvas):
                 split_n,
                 accent,
                 primary,
-                "Helvetica",
+                fonts["regular"],
                 6.5,
             )
             if address:
-                self.setFont("Helvetica", 6.5)
+                self.setFont(fonts["regular"], 6.5)
                 self.setFillColor(HexColor(primary))
                 self.drawString(end_x, footer_y - 12, f"    |    {address}")
 
@@ -180,39 +188,39 @@ class CorpCanvas(canvas.Canvas):
         for li, fline in enumerate(field_lines):
             y_pos = footer_y - 23 - (li * 11)
             full_text = "    |    ".join(f"{f['label']}: {f['value']}" for f in fline)
-            total_w = self.stringWidth(full_text, "Helvetica", 6.5)
+            total_w = self.stringWidth(full_text, fonts["regular"], 6.5)
             cur_x = cx - total_w / 2
 
             for fi, fld in enumerate(fline):
                 if fi > 0:
-                    self.setFont("Helvetica", 6.5)
+                    self.setFont(fonts["regular"], 6.5)
                     self.setFillColor(HexColor("#999999"))
                     sep = "    |    "
                     self.drawString(cur_x, y_pos, sep)
-                    cur_x += self.stringWidth(sep, "Helvetica", 6.5)
+                    cur_x += self.stringWidth(sep, fonts["regular"], 6.5)
 
                 # Label in accent
                 label = fld["label"] + ": "
-                self.setFont("Helvetica", 6.5)
+                self.setFont(fonts["regular"], 6.5)
                 self.setFillColor(HexColor(accent))
                 self.drawString(cur_x, y_pos, label)
-                cur_x += self.stringWidth(label, "Helvetica", 6.5)
+                cur_x += self.stringWidth(label, fonts["regular"], 6.5)
 
                 # Value in primary
                 val = fld["value"]
                 self.setFillColor(HexColor(primary))
                 self.drawString(cur_x, y_pos, val)
-                cur_x += self.stringWidth(val, "Helvetica", 6.5)
+                cur_x += self.stringWidth(val, fonts["regular"], 6.5)
 
         # Page number (language-aware, right-aligned)
         footer_bottom = footer_y - 23 - (len(field_lines) * 11)
         pg = t(lang, "page")
         of = t(lang, "of")
 
-        self.setFont("Helvetica", 7)
+        self.setFont(fonts["regular"], 7)
         self.setFillColor(HexColor("#aaaaaa"))
-        # Page numbering accounts for cover + version page
-        self.drawRightString(w - 2 * cm, footer_bottom, f"{pg} {pn - 2} {of} {total - 2}")
+        # pn / total already exclude the unnumbered front pages
+        self.drawRightString(w - 2 * cm, footer_bottom, f"{pg} {pn} {of} {total}")
 
     @staticmethod
     def _group_fields(fields):

@@ -30,8 +30,21 @@ footer:
 
 defaults:
   language: "auto"
-  version: "0.3.0"
+  version: "0.5.0"
   author: "CorpDoc Team"
+
+fonts:
+  # "helvetica" (default, PDF built-in fonts) | "dejavu" (bundled, wide
+  # Unicode coverage) | a mapping of TTF paths. The demo uses DejaVu so the
+  # formulas in section 5 (Σ, ≤, →, ², ₂ …) render.
+  family: "dejavu"
+
+sections:
+  # Front pages. All default to true; a document can override them in its
+  # frontmatter.
+  cover: true
+  version_history: true
+  toc: true
 
 tables:
   # Tables with this many columns (or more) are rendered on an automatically
