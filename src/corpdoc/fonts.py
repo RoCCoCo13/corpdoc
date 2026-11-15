@@ -158,14 +158,14 @@ def _can_draw(font):
     return can_draw
 
 
-def unsupported_chars(text, fonts=None):
+def unsupported_chars(text, fonts=None, role="regular"):
     """
-    Return the characters of `text` that the regular font cannot draw, in
-    order of first appearance. Whitespace and invisible format characters
-    are ignored.
+    Return the characters of `text` that the `role` font ("regular", "bold",
+    "italic", "bold_italic" or "mono") cannot draw, in order of first
+    appearance. Whitespace and invisible format characters are ignored.
     """
     fonts = fonts or BUILTIN_FONTS
-    can_draw = _can_draw(pdfmetrics.getFont(fonts["regular"]))
+    can_draw = _can_draw(pdfmetrics.getFont(fonts[role]))
     missing = []
     for ch in dict.fromkeys(text):
         if ord(ch) < 128 or ch.isspace() or unicodedata.category(ch) in ("Cf", "Cc"):
@@ -176,8 +176,18 @@ def unsupported_chars(text, fonts=None):
 
 
 def warn_unsupported(text, fonts):
-    """Print a single warning if `text` has characters the fonts cannot draw."""
-    missing = unsupported_chars(text, fonts)
+    """
+    Print a single warning if `text` has characters the fonts cannot draw.
+
+    `text` is a string (checked against the regular font) or a mapping of
+    font role -> strings drawn with that font.
+    """
+    by_role = {"regular": [text]} if isinstance(text, str) else text
+    found = {}
+    for role, chunks in by_role.items():
+        for ch in unsupported_chars("".join(chunks), fonts, role):
+            found.setdefault(ch, None)
+    missing = list(found)
     if not missing:
         return
     shown = ", ".join(f"{ch} (U+{ord(ch):04X})" for ch in missing[:8])
