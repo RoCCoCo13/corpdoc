@@ -1,6 +1,6 @@
 """Tests for the markdown parser."""
 
-from corpdoc.parser import parse_frontmatter, parse_blocks, inline, detect_language
+from corpdoc.parser import detect_language, inline, parse_blocks, parse_frontmatter
 
 
 def test_frontmatter_basic():

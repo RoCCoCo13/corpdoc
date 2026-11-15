@@ -5,9 +5,9 @@ Header: brand tagline (with split-color styling) on left, logo on right.
 Footer: company legal info with key/value brand-split coloring, page numbers.
 """
 
-from reportlab.pdfgen import canvas
 from reportlab.lib.colors import HexColor
 from reportlab.lib.units import cm
+from reportlab.pdfgen import canvas
 
 from corpdoc.fonts import BUILTIN_FONTS
 from corpdoc.i18n import t
@@ -117,10 +117,7 @@ class CorpCanvas(canvas.Canvas):
             target_w = 170 * header_scale
             sc = target_w / iw
             dw, dh = iw * sc, ih * sc
-            try:
-                logo.draw(self, w - 2 * cm - dw, h - 0.6 * cm - dh, dw, dh)
-            except Exception:
-                pass
+            logo.draw(self, w - 2 * cm - dw, h - 0.6 * cm - dh, dw, dh)
 
         # Tagline (left)
         tagline = corp.get("tagline", "")

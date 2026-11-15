@@ -45,7 +45,7 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
-    "ruff>=0.1",
+    "ruff==0.17.5",  # pinned: CI installs exactly this version
     "pypdf>=4.0",
 ]
 
@@ -71,12 +71,6 @@ corpdoc = ["*.yml", "templates/*", "fonts/*.ttf", "fonts/*.txt"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-
-[tool.ruff.lint]
-# Set explicitly so the lint result does not depend on the installed ruff
-# version: these were ruff's defaults until newer releases widened them.
-# pycodestyle import / statement / syntax errors (E4, E7, E9) and Pyflakes (F).
-select = ["E4", "E7", "E9", "F"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

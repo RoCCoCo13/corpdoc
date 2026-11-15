@@ -2,15 +2,15 @@
 
 import os
 import tempfile
+
 from corpdoc.colors import (
-    extract_colors_from_svg,
     assign_roles,
+    darken,
+    extract_colors_from_svg,
+    lighten,
     luminance,
     saturation,
-    lighten,
-    darken,
 )
-
 
 SIMPLE_SVG = """<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
@@ -29,9 +29,8 @@ STYLE_ATTR_SVG = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 def _write_tmp_svg(content):
-    f = tempfile.NamedTemporaryFile(mode="w", suffix=".svg", delete=False)
-    f.write(content)
-    f.close()
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".svg", delete=False) as f:
+        f.write(content)
     return f.name
 
 

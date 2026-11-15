@@ -41,17 +41,17 @@ from reportlab.platypus import (
 from reportlab.platypus.doctemplate import ActionFlowable
 from reportlab.platypus.tableofcontents import TableOfContents
 
-from corpdoc.colors import extract_colors_from_svg, assign_roles
-from corpdoc.parser import _xml_escape, parse_frontmatter, parse_blocks, detect_language
-from corpdoc.styles import build_styles
-from corpdoc.flowables import HRLine, CoverPageFlowable
 from corpdoc._config import as_bool as _as_bool
 from corpdoc.canvas import CorpCanvas
+from corpdoc.colors import assign_roles, extract_colors_from_svg
+from corpdoc.flowables import CoverPageFlowable, HRLine
 from corpdoc.fonts import resolve_fonts, warn_unsupported
 from corpdoc.i18n import t
 from corpdoc.images import build_image_flowables
 from corpdoc.logo import Logo
 from corpdoc.mermaid import PNG_SCALE, MermaidRenderer
+from corpdoc.parser import _xml_escape, detect_language, parse_blocks, parse_frontmatter
+from corpdoc.styles import build_styles
 
 # Page margins shared by the portrait and landscape templates.
 LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, BOTTOM_MARGIN = 2 * cm, 2 * cm, 2.2 * cm, 3.2 * cm
@@ -160,7 +160,7 @@ class CorpDoc:
         elif isinstance(config, dict):
             self.cfg = config
         else:
-            raise ValueError("config must be a path or a dict")
+            raise TypeError(f"config must be a path or a dict, not {type(config).__name__}")
 
         # Extract colors from SVG logo, then let any explicit `colors:` block
         # in the config override the auto-derived values on a per-key basis.
@@ -351,10 +351,14 @@ class CorpDoc:
         s = meta.get("subtitulo", meta.get("subtitle", ""))
         if s:
             return s
-        if len(blocks) >= 2:
-            if blocks[0]["type"] == "h" and blocks[0]["level"] == 1:
-                if blocks[1]["type"] == "h" and blocks[1]["level"] == 2:
-                    return self._plain(blocks[1]["text"])
+        if (
+            len(blocks) >= 2
+            and blocks[0]["type"] == "h"
+            and blocks[0]["level"] == 1
+            and blocks[1]["type"] == "h"
+            and blocks[1]["level"] == 2
+        ):
+            return self._plain(blocks[1]["text"])
         return ""
 
     @staticmethod

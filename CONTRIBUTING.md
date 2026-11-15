@@ -29,7 +29,9 @@ pytest
 ## Code style
 
 - Python 3.10+ syntax
-- `ruff` for linting (`ruff check src/`)
+- `ruff` for linting and formatting, with its default rules: `ruff check src/ tests/` and
+  `ruff format --check src/ tests/` must pass (CI runs both). The ruff version is pinned in
+  `pyproject.toml`; `pip install -e ".[dev]"` installs it.
 - Type hints welcome but not required
 - Docstrings for public APIs (Google style)
 

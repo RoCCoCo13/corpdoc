@@ -7,9 +7,8 @@ based on luminance and saturation.
 """
 
 import re
-from xml.etree import ElementTree as ET
 from collections import Counter
-
+from xml.etree import ElementTree as ET
 
 HEX_PATTERN = re.compile(r"#([0-9a-fA-F]{3,8})\b")
 RGB_PATTERN = re.compile(r"rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)")

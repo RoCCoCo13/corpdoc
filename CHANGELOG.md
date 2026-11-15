@@ -64,6 +64,10 @@ filled, and words at wrapped source lines are no longer glued together
   defaults) into the generated config.
 - The sample document and its PDFs exercise images, numbered lists, links,
   three-level lists and the DejaVu family.
+- `CorpDoc(config=...)` raises `TypeError` instead of `ValueError` when the
+  config is neither a path nor a dict.
+- Linting uses ruff's default rule set, with the ruff version pinned in
+  `pyproject.toml` and used by CI.
 
 ### Removed
 - The `mermaid` extra (`requests`, `cairosvg`). It was never used by the
@@ -87,6 +91,10 @@ filled, and words at wrapped source lines are no longer glued together
   block) crashed the render with `KeyError: 'attrs'`.
 - The alt text of an inline image was dropped instead of printed (mistune v3
   stores it as child tokens).
+- A logo that cannot be read or drawn is now reported with a warning. Before,
+  the problem was swallowed and the logo was silently left out.
+- A truncated SVG logo (zero size) is rejected with a warning instead of
+  failing later.
 
 ## [0.4.1] — 2026-04-25
 

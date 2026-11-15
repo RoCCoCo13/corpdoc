@@ -15,6 +15,6 @@ Basic usage:
 __version__ = "0.5.0"
 
 from corpdoc.api import CorpDoc, RenderResult
-from corpdoc.colors import extract_colors_from_svg, assign_roles
+from corpdoc.colors import assign_roles, extract_colors_from_svg
 
-__all__ = ["CorpDoc", "RenderResult", "extract_colors_from_svg", "assign_roles", "__version__"]
+__all__ = ["CorpDoc", "RenderResult", "__version__", "assign_roles", "extract_colors_from_svg"]

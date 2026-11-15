@@ -42,13 +42,11 @@ from corpdoc.fonts import BUILTIN_FONTS
 class HRLine(Flowable):
     """Horizontal rule with width as a percentage of available width."""
 
-    def __init__(
-        self, width_pct=100, thickness=1, color=HexColor("#333333"), space_before=0, space_after=0
-    ):
+    def __init__(self, width_pct=100, thickness=1, color=None, space_before=0, space_after=0):
         Flowable.__init__(self)
         self.wpct = width_pct / 100
         self.thickness = thickness
-        self.color = color
+        self.color = color if color is not None else HexColor("#333333")
         self.spaceBefore = space_before
         self.spaceAfter = space_after
 
@@ -165,10 +163,7 @@ class CoverPageFlowable(Flowable):
                 fill=1,
                 stroke=0,
             )
-        try:
-            self.logo.draw(canv, cx - dw / 2, cy - dh / 2, dw, dh)
-        except Exception:
-            pass
+        self.logo.draw(canv, cx - dw / 2, cy - dh / 2, dw, dh)
         return (dw, dh)
 
     def _bleed_rect(self, canv, frame_x, frame_y, x, y, w, h):
@@ -261,10 +256,7 @@ class CoverPageFlowable(Flowable):
             max_w = 100 * self.cover_scale
             sc = min(max_w / iw, 1) if iw > 0 else 1
             dw, dh = iw * sc, ih * sc
-            try:
-                self.logo.draw(canv, 0, logo_top_y - dh, dw, dh)
-            except Exception:
-                pass
+            self.logo.draw(canv, 0, logo_top_y - dh, dw, dh)
 
         # Title: large, centered, vertical ~60% of page.
         cx = avail_w / 2
