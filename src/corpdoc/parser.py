@@ -6,6 +6,8 @@ Produces typed block dicts consumed by api.py.
 """
 
 import re
+from urllib.parse import unquote
+
 import mistune
 import yaml
 
@@ -56,6 +58,10 @@ def parse_blocks(md_text):
         {'type': 'mermaid', 'content': str}
         {'type': 'code',    'lang': str, 'content': str}
         {'type': 'hr'}
+        {'type': 'image',   'src': str, 'alt': str}         <- plain text
+
+    A paragraph that contains only an image becomes an 'image' block. An
+    image mixed with text stays inline and is replaced by its alt text.
     """
     md = mistune.create_markdown(renderer=None, plugins=["table", "strikethrough"])
     tokens = md(md_text) or []
@@ -71,6 +77,10 @@ def _tokens_to_blocks(tokens):
             text = _inline_to_xml(tok.get("children", []))
             blocks.append({"type": "h", "level": level, "text": text})
         elif t == "paragraph":
+            image = _sole_image(tok.get("children", []))
+            if image is not None:
+                blocks.append(image)
+                continue
             text = _inline_to_xml(tok.get("children", []))
             blocks.append({"type": "p", "text": text})
         elif t == "block_code":
@@ -92,6 +102,36 @@ def _tokens_to_blocks(tokens):
             blocks.append({"type": "hr"})
         # block_html and unknown types are silently skipped
     return blocks
+
+
+def _sole_image(children):
+    """Return an image block if the inline children are exactly one image."""
+    meaningful = [
+        c
+        for c in children
+        if not (c["type"] in ("softline_break", "line_break"))
+        and not (c["type"] == "text" and not c.get("raw", "").strip())
+    ]
+    if len(meaningful) != 1 or meaningful[0]["type"] != "image":
+        return None
+    tok = meaningful[0]
+    src = unquote((tok.get("attrs") or {}).get("url", ""))
+    if not src:
+        return None
+    return {"type": "image", "src": src, "alt": _plain_text(tok.get("children", []))}
+
+
+def _plain_text(children):
+    """Flatten inline tokens to plain text (no markup, no escaping)."""
+    parts = []
+    for child in children:
+        if "children" in child:
+            parts.append(_plain_text(child["children"]))
+        elif child["type"] in ("softline_break", "line_break"):
+            parts.append(" ")
+        elif child["type"] != "raw_html":
+            parts.append(child.get("raw", ""))
+    return "".join(parts)
 
 
 def _list_items(children, depth):
@@ -163,7 +203,12 @@ def _inline_to_xml(children):
         elif t == "link":
             parts.append(_inline_to_xml(child.get("children", [])))
         elif t == "image":
-            parts.append(_xml_escape(child.get("attrs", {}).get("alt", "")))
+            # Inline image: only its alt text is kept. mistune v3 stores the
+            # alt text as child tokens (older versions used attrs["alt"]).
+            alt = _plain_text(child.get("children", [])) or (child.get("attrs") or {}).get(
+                "alt", ""
+            )
+            parts.append(_xml_escape(alt))
         elif t == "raw_html":
             pass
         else:

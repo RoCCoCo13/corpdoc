@@ -46,7 +46,13 @@ from corpdoc.styles import build_styles
 from corpdoc.flowables import HRLine, CoverPageFlowable
 from corpdoc.canvas import CorpCanvas
 from corpdoc.i18n import t
+from corpdoc.images import build_image_flowables
 from corpdoc.logo import Logo
+
+# Page margins shared by the portrait and landscape templates.
+LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, BOTTOM_MARGIN = 2 * cm, 2 * cm, 2.2 * cm, 3.2 * cm
+# ReportLab frames keep a 6 pt padding on every side.
+FRAME_PADDING = 6
 
 
 class CorpDocTemplate(BaseDocTemplate):
@@ -135,21 +141,27 @@ class CorpDoc:
 
         self.styles = build_styles(self.colors)
 
-    def render(self, md_input, output="output.pdf"):
+    def render(self, md_input, output="output.pdf", base_dir=None):
         """
         Render a Markdown file or string to PDF.
 
         Args:
             md_input: Path to .md file, or markdown text as string.
             output: Output PDF path.
+            base_dir: Directory that relative image paths are resolved
+                against. Defaults to the Markdown file's directory, or to
+                the current directory when `md_input` is a string.
 
         Returns:
             Path to the generated PDF.
         """
         if os.path.exists(str(md_input)):
             md_text = Path(md_input).read_text(encoding="utf-8")
+            default_base = os.path.dirname(os.path.abspath(str(md_input)))
         else:
             md_text = str(md_input)
+            default_base = os.getcwd()
+        self._base_dir = str(base_dir) if base_dir else default_base
 
         meta, body = parse_frontmatter(md_text)
         blocks = parse_blocks(body)
@@ -160,7 +172,7 @@ class CorpDoc:
         title = self._extract_title(meta, blocks)
         subtitle = self._extract_subtitle(meta, blocks)
 
-        left_m, right_m, top_m, bottom_m = 2 * cm, 2 * cm, 2.2 * cm, 3.2 * cm
+        left_m, right_m, top_m, bottom_m = LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, BOTTOM_MARGIN
         portrait_size = A4
         landscape_size = landscape(A4)
 
@@ -434,7 +446,16 @@ class CorpDoc:
                 els.append(Paragraph(content, S["CCode"]))
             elif tp == "hr":
                 els.append(HRLine(100, 0.5, HexColor(c["secondary"]), 4 * mm, 4 * mm))
+            elif tp == "image":
+                els.extend(self._build_image(b["src"], b.get("alt", "")))
         return els
+
+    def _build_image(self, src, alt, scale=1.0):
+        """Block image scaled to the portrait frame, with the alt text as caption."""
+        max_w = A4[0] - LEFT_MARGIN - RIGHT_MARGIN - 2 * FRAME_PADDING
+        max_h = A4[1] - TOP_MARGIN - BOTTOM_MARGIN - 2 * FRAME_PADDING
+        base_dir = getattr(self, "_base_dir", None) or os.getcwd()
+        return build_image_flowables(src, alt, base_dir, max_w, max_h, self.styles, scale=scale)
 
     def _needs_landscape(self, rows):
         """

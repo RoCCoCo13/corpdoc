@@ -6,7 +6,7 @@ to get a dict-like object of all named styles.
 """
 
 from reportlab.lib.colors import HexColor, white
-from reportlab.lib.enums import TA_LEFT, TA_JUSTIFY
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 
@@ -242,6 +242,39 @@ def build_styles(colors):
             borderPadding=8,
             borderWidth=1,
             borderColor=HexColor(c["secondary"]),
+        )
+    )
+
+    # Figures: caption under a block image, and the placeholder shown when
+    # an image is missing or unreadable
+    add(
+        P(
+            "CCaption",
+            parent=base["Normal"],
+            fontName="Helvetica-Oblique",
+            fontSize=8.5,
+            textColor=HexColor("#666666"),
+            leading=11,
+            alignment=TA_CENTER,
+        )
+    )
+    add(
+        P(
+            "CPlaceholder",
+            parent=base["Normal"],
+            fontName="Helvetica-Oblique",
+            fontSize=9,
+            textColor=HexColor("#888888"),
+            backColor=HexColor("#f5f5f5"),
+            leading=12,
+            alignment=TA_CENTER,
+            leftIndent=5 * mm,
+            rightIndent=5 * mm,
+            spaceBefore=3 * mm,
+            spaceAfter=4 * mm,
+            borderPadding=6,
+            borderWidth=0.5,
+            borderColor=HexColor("#bbbbbb"),
         )
     )
 
