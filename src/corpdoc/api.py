@@ -38,6 +38,7 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+from reportlab.platypus.doctemplate import ActionFlowable
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from corpdoc.colors import extract_colors_from_svg, assign_roles
@@ -69,6 +70,39 @@ def _as_bool(value, default):
     if word in _FALSE_WORDS:
         return False
     return default
+
+
+class RenderResult(str):
+    """
+    Return value of `CorpDoc.render`.
+
+    It is the output path (a plain `str` subclass, so existing code that
+    treats the result as a path keeps working) with the page counts of the
+    generated PDF attached:
+
+        total_pages: every page in the PDF.
+        body_pages:  pages after cover / version history / table of contents.
+        max_pages:   the body-page limit in effect, or None.
+        over_limit:  True when `body_pages` exceeds `max_pages`.
+    """
+
+    def __new__(cls, path, total_pages=0, body_pages=0, max_pages=None):
+        obj = super().__new__(cls, path)
+        obj.total_pages = total_pages
+        obj.body_pages = body_pages
+        obj.max_pages = max_pages
+        return obj
+
+    @property
+    def over_limit(self):
+        return self.max_pages is not None and self.body_pages > self.max_pages
+
+
+class _BodyStart(ActionFlowable):
+    """Zero-size marker: records the page on which the document body starts."""
+
+    def apply(self, doc):
+        doc.body_start_page = max(1, doc.page)
 
 
 class CorpDocTemplate(BaseDocTemplate):
@@ -157,6 +191,10 @@ class CorpDoc:
 
         self.styles = build_styles(self.colors)
 
+        # Page counts of the most recent render() call.
+        self.total_pages = None
+        self.body_pages = None
+
     def render(self, md_input, output="output.pdf", base_dir=None):
         """
         Render a Markdown file or string to PDF.
@@ -169,7 +207,10 @@ class CorpDoc:
                 the current directory when `md_input` is a string.
 
         Returns:
-            Path to the generated PDF.
+            Path to the generated PDF, as a `RenderResult`: a `str` that
+            also carries `total_pages`, `body_pages`, `max_pages` and
+            `over_limit`. The two counts are mirrored on this object as
+            `self.total_pages` / `self.body_pages`.
         """
         if os.path.exists(str(md_input)):
             md_text = Path(md_input).read_text(encoding="utf-8")
@@ -236,17 +277,35 @@ class CorpDoc:
             elements.extend(self._build_version_history(meta, lang))
         if sections["toc"]:
             elements.extend(self._build_toc(lang))
-        elements.extend(self._build_body(blocks))
+        body = self._build_body(blocks)
+        if body:
+            elements.append(_BodyStart())
+            elements.extend(body)
 
         corp_data = self._build_corp_data(lang)
         # Cover and version history carry no header/footer and no page number.
         corp_data["unnumbered_pages"] = int(sections["cover"]) + int(sections["version_history"])
 
+        canvases = []
+
         def canvas_maker(filename, pagesize=A4, **kw):
-            return CorpCanvas(filename, pagesize=pagesize, _corp=corp_data, **kw)
+            canvases.append(CorpCanvas(filename, pagesize=pagesize, _corp=corp_data, **kw))
+            return canvases[-1]
 
         doc.build(elements, canvasmaker=canvas_maker)
-        return output
+
+        total = canvases[-1].page_count if canvases else 0
+        body_start = getattr(doc, "body_start_page", None)
+        body_pages = max(0, total - body_start + 1) if body_start else 0
+        result = RenderResult(output, total, body_pages, self._resolve_max_pages(meta))
+        self.total_pages, self.body_pages = total, body_pages
+        if result.over_limit:
+            print(
+                f"Warning: document body has {body_pages} pages, "
+                f"more than max_pages = {result.max_pages}.",
+                file=sys.stderr,
+            )
+        return result
 
     # ─────────────────────────────────────────────────
     # Helpers
@@ -300,6 +359,25 @@ class CorpDoc:
                     value = _as_bool(source[key], value)
             resolved[key] = value
         return resolved
+
+    def _resolve_max_pages(self, meta):
+        """Body-page limit: frontmatter `max_pages` > `defaults.max_pages` > None."""
+        raw = meta.get("max_pages")
+        if raw in (None, ""):
+            raw = (self.cfg.get("defaults") or {}).get("max_pages")
+        if raw in (None, ""):
+            return None
+        try:
+            limit = int(str(raw).strip())
+        except ValueError:
+            limit = 0
+        if limit < 1:
+            print(
+                f"Warning: max_pages must be a positive integer (got {raw!r}); limit ignored.",
+                file=sys.stderr,
+            )
+            return None
+        return limit
 
     def _build_corp_data(self, lang):
         company = self.cfg.get("company", {})

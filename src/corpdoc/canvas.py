@@ -69,6 +69,7 @@ class CorpCanvas(canvas.Canvas):
         self._corp = kwargs.pop("_corp", {})
         super().__init__(*args, **kwargs)
         self._page_states = []
+        self.page_count = 0
 
     def showPage(self):
         self._page_states.append(dict(self.__dict__))
@@ -80,6 +81,8 @@ class CorpCanvas(canvas.Canvas):
             self.__dict__.update(state)
             self._draw_header_footer(total)
             canvas.Canvas.showPage(self)
+        # Set after the loop: restoring each page state rewinds __dict__.
+        self.page_count = total
         canvas.Canvas.save(self)
 
     def _draw_header_footer(self, total_pages):
