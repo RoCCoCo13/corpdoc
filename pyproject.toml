@@ -48,10 +48,6 @@ dev = [
     "ruff>=0.1",
     "pypdf>=4.0",
 ]
-mermaid = [
-    "requests>=2.28",
-    "cairosvg>=2.6",
-]
 
 [project.urls]
 Homepage = "https://github.com/RoCCoCo13/corpdoc"

@@ -50,6 +50,7 @@ from corpdoc.fonts import resolve_fonts, warn_unsupported
 from corpdoc.i18n import t
 from corpdoc.images import build_image_flowables
 from corpdoc.logo import Logo
+from corpdoc.mermaid import PNG_SCALE, MermaidRenderer
 
 # Page margins shared by the portrait and landscape templates.
 LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, BOTTOM_MARGIN = 2 * cm, 2 * cm, 2.2 * cm, 3.2 * cm
@@ -193,6 +194,9 @@ class CorpDoc:
         self.fonts = resolve_fonts(self.cfg)
         self.styles = build_styles(self.colors, self.fonts)
 
+        # Set for the duration of a render() call (see MermaidRenderer).
+        self._mermaid = None
+
         # Page counts of the most recent render() call.
         self.total_pages = None
         self.body_pages = None
@@ -284,11 +288,6 @@ class CorpDoc:
             elements.extend(self._build_version_history(meta, lang))
         if sections["toc"]:
             elements.extend(self._build_toc(lang))
-        body = self._build_body(blocks)
-        if body:
-            elements.append(_BodyStart())
-            elements.extend(body)
-
         corp_data = self._build_corp_data(lang)
         # Cover and version history carry no header/footer and no page number.
         corp_data["unnumbered_pages"] = int(sections["cover"]) + int(sections["version_history"])
@@ -299,7 +298,18 @@ class CorpDoc:
             canvases.append(CorpCanvas(filename, pagesize=pagesize, _corp=corp_data, **kw))
             return canvases[-1]
 
-        doc.build(elements, canvasmaker=canvas_maker)
+        # Rendered Mermaid diagrams are temp files that ReportLab reads
+        # during build(), so they are removed only once the build is over.
+        self._mermaid = MermaidRenderer(self.cfg)
+        try:
+            body = self._build_body(blocks)
+            if body:
+                elements.append(_BodyStart())
+                elements.extend(body)
+            doc.build(elements, canvasmaker=canvas_maker)
+        finally:
+            self._mermaid.cleanup()
+            self._mermaid = None
 
         total = canvases[-1].page_count if canvases else 0
         body_start = getattr(doc, "body_start_page", None)
@@ -584,6 +594,10 @@ class CorpDoc:
                 else:
                     els.extend(self._build_table(b["rows"]))
             elif tp == "mermaid":
+                png = self._mermaid.render(b["content"]) if self._mermaid else None
+                if png:
+                    els.extend(self._build_image(png, "", scale=1 / PNG_SCALE))
+                    continue
                 content = b["content"].replace("\n", "<br/>")
                 els.append(Paragraph(f"<b>[ Diagram ]</b><br/><br/>{content}", S["CMermaid"]))
             elif tp == "code":
