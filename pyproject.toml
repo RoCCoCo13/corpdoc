@@ -45,7 +45,7 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
-    "ruff>=0.1",
+    "ruff==0.17.5",  # pinned: CI installs exactly this version
     "pypdf>=4.0",
 ]
 

@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- A logo that cannot be read or drawn is now reported with a warning. Before,
+  the problem was swallowed and the logo was silently left out.
+- A truncated SVG logo (zero size) is rejected with a warning instead of
+  failing later.
+
+### Changed
+- Linting uses ruff's default rule set, with the ruff version pinned in
+  `pyproject.toml` and used by CI.
+
 ## [0.5.0] — 2026-11-15
 
 Existing documents render as before: every new behaviour is additive or
