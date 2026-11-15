@@ -53,7 +53,9 @@ def parse_blocks(md_text):
     Block types:
         {'type': 'h',       'level': 1-4,    'text': str}  <- ReportLab XML
         {'type': 'p',       'text': str}                    <- ReportLab XML
-        {'type': 'list',    'items': [{'text': str, 'level': 0|1}]}
+        {'type': 'list',    'ordered': bool, 'start': int,
+                            'items': [{'text': str, 'level': 0|1,
+                                       'ordered': bool, 'number': int|None}]}
         {'type': 'table',   'rows': [[str, ...], ...]}      <- cells are XML
         {'type': 'mermaid', 'content': str}
         {'type': 'code',    'lang': str, 'content': str}
@@ -91,9 +93,10 @@ def _tokens_to_blocks(tokens):
             else:
                 blocks.append({"type": "code", "lang": info, "content": content})
         elif t == "list":
-            items = _list_items(tok.get("children", []), depth=0)
+            ordered, start = _list_attrs(tok)
+            items = _list_items(tok.get("children", []), 0, ordered, start)
             if items:
-                blocks.append({"type": "list", "items": items})
+                blocks.append({"type": "list", "ordered": ordered, "start": start, "items": items})
         elif t == "table":
             rows = _table_rows(tok.get("children", []))
             if rows:
@@ -134,17 +137,41 @@ def _plain_text(children):
     return "".join(parts)
 
 
-def _list_items(children, depth):
+def _list_attrs(tok):
+    """Return (ordered, start) for a mistune list token."""
+    attrs = tok.get("attrs") or {}
+    ordered = bool(attrs.get("ordered"))
+    start = attrs.get("start")
+    return ordered, (start if isinstance(start, int) else 1)
+
+
+def _list_items(children, depth, ordered=False, start=1):
+    """
+    Flatten a (possibly nested) list into items. Every item carries the
+    kind of the list it belongs to; numbering restarts in each nested list.
+    """
     items = []
+    number = start
     for item in children:
         if item["type"] != "list_item":
             continue
+        numbered = False
         for child in item.get("children", []):
             if child["type"] in ("block_text", "paragraph"):
                 text = _inline_to_xml(child.get("children", []))
-                items.append({"text": text, "level": min(depth, 1)})
+                entry = {"text": text, "level": min(depth, 1), "ordered": ordered, "number": None}
+                # Only the first paragraph of an item gets the number.
+                if ordered and not numbered:
+                    entry["number"] = number
+                    numbered = True
+                items.append(entry)
             elif child["type"] == "list":
-                items.extend(_list_items(child.get("children", []), depth + 1))
+                sub_ordered, sub_start = _list_attrs(child)
+                items.extend(
+                    _list_items(child.get("children", []), depth + 1, sub_ordered, sub_start)
+                )
+        if ordered:
+            number += 1
     return items
 
 

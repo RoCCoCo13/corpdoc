@@ -547,7 +547,14 @@ class CorpDoc:
                     text = item["text"] if isinstance(item, dict) else item
                     level = item.get("level", 0) if isinstance(item, dict) else 0
                     style = S["CBullet2"] if level > 0 else S["CBullet"]
-                    els.append(Paragraph(f"•  {text}", style))
+                    ordered = isinstance(item, dict) and item.get("ordered")
+                    number = item.get("number") if ordered else None
+                    if number is not None:
+                        text = f"{number}.  {text}"
+                    elif not ordered:
+                        text = f"•  {text}"
+                    # else: continuation paragraph of a numbered item, no marker
+                    els.append(Paragraph(text, style))
                 els.append(Spacer(1, 2 * mm))
             elif tp == "table":
                 if self._needs_landscape(b["rows"]):
