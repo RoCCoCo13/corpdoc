@@ -165,3 +165,21 @@ def test_no_network_code_in_the_package():
         encoding="utf-8"
     )
     assert "requests" not in pyproject
+
+
+@pytest.mark.parametrize(
+    "setting", [False, {"enabled": "false"}, {"enabled": "no"}, {"enabled": 0}, {"enabled": "off"}]
+)
+def test_mermaid_disabled_accepts_false_like_values(tmp_path, fake_mmdc, capsys, setting):
+    fake = fake_mmdc()
+    text, images = _render(tmp_path, mermaid=setting)
+    assert images == 0 and "[ Diagram ]" in text
+    assert fake.calls == []
+    assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize("setting", [True, {"enabled": "yes"}, {"enabled": "typo"}, {}, None])
+def test_mermaid_stays_enabled_for_true_like_or_unknown_values(tmp_path, fake_mmdc, setting):
+    fake = fake_mmdc()
+    _, images = _render(tmp_path, mermaid=setting)
+    assert images == 1 and len(fake.calls) == 1

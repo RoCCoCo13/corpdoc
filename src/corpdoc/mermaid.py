@@ -17,6 +17,8 @@ import subprocess
 import sys
 import tempfile
 
+from corpdoc._config import as_bool
+
 # Seconds allowed per diagram before mmdc is killed.
 DEFAULT_TIMEOUT = 30
 
@@ -38,8 +40,13 @@ class MermaidRenderer:
     """
 
     def __init__(self, cfg=None):
-        mcfg = (cfg or {}).get("mermaid") or {}
-        self.enabled = mcfg.get("enabled", True) is not False
+        mcfg = (cfg or {}).get("mermaid")
+        if isinstance(mcfg, dict):
+            self.enabled = as_bool(mcfg.get("enabled", True), True)
+        else:
+            # Shorthand: `mermaid: false` switches the feature off.
+            self.enabled = True if mcfg is None else as_bool(mcfg, True)
+            mcfg = {}
         self.puppeteer_config = mcfg.get("puppeteer_config") or ""
         try:
             self.timeout = float(mcfg.get("timeout", DEFAULT_TIMEOUT))
