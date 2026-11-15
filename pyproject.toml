@@ -46,6 +46,7 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "ruff>=0.1",
+    "pypdf>=4.0",
 ]
 mermaid = [
     "requests>=2.28",
@@ -69,7 +70,7 @@ package-dir = { "" = "src" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-corpdoc = ["*.yml", "templates/*"]
+corpdoc = ["*.yml", "templates/*", "fonts/*.ttf", "fonts/*.txt"]
 
 [tool.ruff]
 line-length = 100

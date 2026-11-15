@@ -10,19 +10,24 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 
+from corpdoc.fonts import BUILTIN_FONTS
 
-def build_styles(colors):
+
+def build_styles(colors, fonts=None):
     """
     Build the full style sheet for a CorpDoc document.
 
     Args:
         colors: dict with keys primary, secondary, accent, light, lighter, text.
+        fonts: font names as returned by `corpdoc.fonts.resolve_fonts`
+            (default: the built-in Helvetica / Courier).
 
     Returns:
         A ReportLab StyleSheet with all CorpDoc styles registered.
     """
     base = getSampleStyleSheet()
     c = colors
+    F = fonts or BUILTIN_FONTS
     P = ParagraphStyle
 
     def add(style):
@@ -33,7 +38,7 @@ def build_styles(colors):
         P(
             "CTitle",
             parent=base["Title"],
-            fontName="Helvetica-Bold",
+            fontName=F["bold"],
             fontSize=28,
             textColor=HexColor(c["primary"]),
             spaceAfter=4 * mm,
@@ -45,7 +50,7 @@ def build_styles(colors):
         P(
             "CSubtitle",
             parent=base["Normal"],
-            fontName="Helvetica",
+            fontName=F["regular"],
             fontSize=14,
             textColor=HexColor(c["secondary"]),
             spaceAfter=10 * mm,
@@ -58,7 +63,7 @@ def build_styles(colors):
         P(
             "CH1",
             parent=base["Heading1"],
-            fontName="Helvetica-Bold",
+            fontName=F["bold"],
             fontSize=17,
             textColor=HexColor(c["primary"]),
             spaceBefore=10 * mm,
@@ -69,7 +74,7 @@ def build_styles(colors):
         P(
             "CH2",
             parent=base["Heading2"],
-            fontName="Helvetica-Bold",
+            fontName=F["bold"],
             fontSize=13,
             textColor=HexColor(c["primary"]),
             spaceBefore=7 * mm,
@@ -80,7 +85,7 @@ def build_styles(colors):
         P(
             "CH3",
             parent=base["Heading3"],
-            fontName="Helvetica-Bold",
+            fontName=F["bold"],
             fontSize=11,
             textColor=HexColor(c.get("highlight", c["secondary"])),
             spaceBefore=5 * mm,
@@ -91,7 +96,7 @@ def build_styles(colors):
         P(
             "CH4",
             parent=base["Heading4"],
-            fontName="Helvetica-Bold",
+            fontName=F["bold"],
             fontSize=10,
             textColor=HexColor(c["text"]),
             spaceBefore=4 * mm,
@@ -104,7 +109,7 @@ def build_styles(colors):
         P(
             "CBody",
             parent=base["Normal"],
-            fontName="Helvetica",
+            fontName=F["regular"],
             fontSize=10,
             textColor=HexColor(c["text"]),
             leading=14,
@@ -116,7 +121,7 @@ def build_styles(colors):
         P(
             "CBullet",
             parent=base["Normal"],
-            fontName="Helvetica",
+            fontName=F["regular"],
             fontSize=10,
             textColor=HexColor(c["text"]),
             leading=14,
@@ -129,7 +134,7 @@ def build_styles(colors):
         P(
             "CBullet2",
             parent=base["Normal"],
-            fontName="Helvetica",
+            fontName=F["regular"],
             fontSize=9.5,
             textColor=HexColor("#555555"),
             leading=13,
@@ -144,7 +149,7 @@ def build_styles(colors):
         P(
             "CCode",
             parent=base["Code"],
-            fontName="Courier",
+            fontName=F["mono"],
             fontSize=8,
             textColor=HexColor("#2d2d2d"),
             backColor=HexColor("#f5f5f5"),
@@ -161,32 +166,32 @@ def build_styles(colors):
     add(
         P(
             "TCell",
-            fontName="Helvetica",
+            fontName=F["regular"],
             fontSize=8.5,
             textColor=HexColor(c["text"]),
             leading=11,
             alignment=TA_LEFT,
         )
     )
-    add(P("THead", fontName="Helvetica-Bold", fontSize=8.5, textColor=white, leading=11))
+    add(P("THead", fontName=F["bold"], fontSize=8.5, textColor=white, leading=11))
     add(
         P(
             "TCellSm",
-            fontName="Helvetica",
+            fontName=F["regular"],
             fontSize=7.5,
             textColor=HexColor(c["text"]),
             leading=10,
             alignment=TA_LEFT,
         )
     )
-    add(P("THeadSm", fontName="Helvetica-Bold", fontSize=7.5, textColor=white, leading=10))
+    add(P("THeadSm", fontName=F["bold"], fontSize=7.5, textColor=white, leading=10))
 
     # Meta (cover / version page)
     add(
         P(
             "CMeta",
             parent=base["Normal"],
-            fontName="Helvetica",
+            fontName=F["regular"],
             fontSize=10,
             textColor=HexColor(c["text"]),
             leading=15,
@@ -198,7 +203,7 @@ def build_styles(colors):
     add(
         P(
             "TOC1",
-            fontName="Helvetica-Bold",
+            fontName=F["bold"],
             fontSize=11,
             textColor=HexColor(c["primary"]),
             spaceBefore=2 * mm,
@@ -208,7 +213,7 @@ def build_styles(colors):
     add(
         P(
             "TOC2",
-            fontName="Helvetica",
+            fontName=F["regular"],
             fontSize=10,
             textColor=HexColor(c["text"]),
             leftIndent=8 * mm,
@@ -218,7 +223,7 @@ def build_styles(colors):
     add(
         P(
             "TOC3",
-            fontName="Helvetica",
+            fontName=F["regular"],
             fontSize=9,
             textColor=HexColor("#666666"),
             leftIndent=16 * mm,
@@ -230,7 +235,7 @@ def build_styles(colors):
     add(
         P(
             "CMermaid",
-            fontName="Courier",
+            fontName=F["mono"],
             fontSize=8.5,
             textColor=HexColor(c["primary"]),
             backColor=HexColor(c["lighter"]),
@@ -251,7 +256,7 @@ def build_styles(colors):
         P(
             "CCaption",
             parent=base["Normal"],
-            fontName="Helvetica-Oblique",
+            fontName=F["italic"],
             fontSize=8.5,
             textColor=HexColor("#666666"),
             leading=11,
@@ -262,7 +267,7 @@ def build_styles(colors):
         P(
             "CPlaceholder",
             parent=base["Normal"],
-            fontName="Helvetica-Oblique",
+            fontName=F["italic"],
             fontSize=9,
             textColor=HexColor("#888888"),
             backColor=HexColor("#f5f5f5"),
@@ -282,7 +287,7 @@ def build_styles(colors):
     add(
         P(
             "VerH",
-            fontName="Helvetica-Bold",
+            fontName=F["bold"],
             fontSize=14,
             textColor=HexColor(c["primary"]),
             spaceBefore=6 * mm,

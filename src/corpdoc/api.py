@@ -46,6 +46,7 @@ from corpdoc.parser import parse_frontmatter, parse_blocks, detect_language
 from corpdoc.styles import build_styles
 from corpdoc.flowables import HRLine, CoverPageFlowable
 from corpdoc.canvas import CorpCanvas
+from corpdoc.fonts import resolve_fonts, warn_unsupported
 from corpdoc.i18n import t
 from corpdoc.images import build_image_flowables
 from corpdoc.logo import Logo
@@ -189,7 +190,8 @@ class CorpDoc:
                 file=sys.stderr,
             )
 
-        self.styles = build_styles(self.colors)
+        self.fonts = resolve_fonts(self.cfg)
+        self.styles = build_styles(self.colors, self.fonts)
 
         # Page counts of the most recent render() call.
         self.total_pages = None
@@ -221,7 +223,9 @@ class CorpDoc:
         self._base_dir = str(base_dir) if base_dir else default_base
 
         meta, body = parse_frontmatter(md_text)
-        blocks = parse_blocks(body)
+        blocks = parse_blocks(body, mono_font=self.fonts["mono"])
+        # One warning per render for characters that would come out as boxes.
+        warn_unsupported(md_text, self.fonts)
 
         lang_cfg = self.cfg.get("defaults", {}).get("language", "auto")
         lang = detect_language(body) if lang_cfg == "auto" else lang_cfg
@@ -242,6 +246,9 @@ class CorpDoc:
             bottomMargin=bottom_m,
             title=title,
             author=meta.get("autor", meta.get("author", "")),
+            # With an embedded family, keep pages from referencing Helvetica
+            # as the canvas start-up font (None = ReportLab's default).
+            initialFontName=None if self.fonts["builtin"] else self.fonts["regular"],
         )
 
         def _make_frame(pw, ph, frame_id):
@@ -394,6 +401,7 @@ class CorpDoc:
         data["address"] = footer.get("address", "")
         data["fields"] = footer.get("fields", [])
         data["header_scale"] = logo.get("header_scale", 0.45)
+        data["fonts"] = self.fonts
         return data
 
     # ─────────────────────────────────────────────────
@@ -426,6 +434,7 @@ class CorpDoc:
                 defaults=self.cfg.get("defaults", {}),
                 style=style,
                 cover_cfg=cover_cfg,
+                fonts=self.fonts,
             ),
             PageBreak(),
         ]
@@ -468,6 +477,7 @@ class CorpDoc:
         tbl.setStyle(
             TableStyle(
                 [
+                    ("FONTNAME", (0, 0), (-1, -1), self.fonts["regular"]),
                     ("BACKGROUND", (0, 0), (-1, 0), HexColor(c["primary"])),
                     ("TEXTCOLOR", (0, 0), (-1, 0), white),
                     ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#cccccc")),
@@ -488,10 +498,18 @@ class CorpDoc:
         S = self.styles
 
         toc = TableOfContents()
+        if not self.fonts["builtin"]:
+            # The TOC lays itself out in an internal table with its own cell font.
+            toc.tableStyle = TableStyle(
+                [
+                    *toc.tableStyle.getCommands(),
+                    ("FONTNAME", (0, 0), (-1, -1), self.fonts["regular"]),
+                ]
+            )
         toc.levelStyles = [
             ParagraphStyle(
                 "TOCEntry1",
-                fontName="Helvetica-Bold",
+                fontName=self.fonts["bold"],
                 fontSize=11,
                 textColor=HexColor(c["primary"]),
                 leftIndent=0,
@@ -501,7 +519,7 @@ class CorpDoc:
             ),
             ParagraphStyle(
                 "TOCEntry2",
-                fontName="Helvetica",
+                fontName=self.fonts["regular"],
                 fontSize=10,
                 textColor=HexColor(c["text"]),
                 leftIndent=8 * mm,
@@ -510,7 +528,7 @@ class CorpDoc:
             ),
             ParagraphStyle(
                 "TOCEntry3",
-                fontName="Helvetica",
+                fontName=self.fonts["regular"],
                 fontSize=9,
                 textColor=HexColor("#666666"),
                 leftIndent=16 * mm,
@@ -614,6 +632,8 @@ class CorpDoc:
         tbl = Table(data, colWidths=[avail / n] * n, repeatRows=1)
 
         style = [
+            # Cells are Paragraphs, but the table still selects its own cell font.
+            ("FONTNAME", (0, 0), (-1, -1), self.fonts["regular"]),
             ("BACKGROUND", (0, 0), (-1, 0), HexColor(c["primary"])),
             ("TEXTCOLOR", (0, 0), (-1, 0), white),
             ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#cccccc")),
