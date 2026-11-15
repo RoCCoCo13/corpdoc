@@ -300,6 +300,7 @@ class CorpDoc:
         try:
             body = self._build_body(blocks)
             if body:
+                body = self._open_body_in_landscape(doc, elements, body)
                 elements.append(_BodyStart())
                 elements.extend(body)
             if sections["toc"]:
@@ -355,6 +356,32 @@ class CorpDoc:
                 if blocks[1]["type"] == "h" and blocks[1]["level"] == 2:
                     return self._plain(blocks[1]["text"])
         return ""
+
+    @staticmethod
+    def _open_body_in_landscape(doc, front, body):
+        """
+        Avoid a blank page when the body opens with a landscape table.
+
+        A landscape table starts with "switch template + page break". As the
+        first thing in the body that break would leave an empty portrait
+        page, so the switch is moved to where the body's first page starts:
+        before the page break that ends the front pages, or, without front
+        pages, by making landscape the template of the first page.
+        """
+        opens_wide = (
+            len(body) > 2
+            and isinstance(body[0], NextPageTemplate)
+            and isinstance(body[1], PageBreak)
+        )
+        if not opens_wide:
+            return body
+        if not front:
+            doc.pageTemplates.reverse()
+            return body[2:]
+        if isinstance(front[-1], PageBreak):
+            front.insert(len(front) - 1, body[0])
+            return body[2:]
+        return body
 
     SECTION_KEYS = ("cover", "version_history", "toc")
 
