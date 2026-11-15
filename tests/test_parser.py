@@ -167,3 +167,15 @@ def test_detect_language_spanish():
 def test_detect_language_german():
     text = "Der braune Fuchs springt über den faulen Hund. Das ist ein Test für das System."
     assert detect_language(text) == "de"
+
+
+def test_parse_code_block_without_language():
+    """A bare ``` fence (no info string) has no 'attrs' in mistune v3 — must not crash."""
+    blocks = parse_blocks("```\nE = m * c^2\n```")
+    assert blocks == [{"type": "code", "lang": "", "content": "E = m * c^2\n"}]
+
+
+def test_parse_indented_code_block():
+    blocks = parse_blocks("Text\n\n    indented code\n")
+    assert blocks[-1]["type"] == "code"
+    assert "indented code" in blocks[-1]["content"]

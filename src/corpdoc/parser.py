@@ -86,7 +86,7 @@ def _tokens_to_blocks(tokens):
             text = _inline_to_xml(tok.get("children", []))
             blocks.append({"type": "p", "text": text})
         elif t == "block_code":
-            info = (tok["attrs"].get("info") or "").strip().lower()
+            info = ((tok.get("attrs") or {}).get("info") or "").strip().lower()
             content = tok.get("raw", "")
             if info == "mermaid":
                 blocks.append({"type": "mermaid", "content": content})
