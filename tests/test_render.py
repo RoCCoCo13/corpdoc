@@ -237,3 +237,11 @@ def test_render_wide_table_produces_landscape_page():
             assert os.path.getsize(pdf) > 2000
     finally:
         os.unlink(pdf)
+
+
+def test_config_of_the_wrong_type_raises_type_error():
+    import pytest
+
+    for bad in (None, 42, ["corpdoc.yml"]):
+        with pytest.raises(TypeError, match="config must be a path or a dict"):
+            CorpDoc(config=bad)

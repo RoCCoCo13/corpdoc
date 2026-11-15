@@ -160,8 +160,7 @@ class CorpDoc:
         elif isinstance(config, dict):
             self.cfg = config
         else:
-            # ValueError is part of the public behaviour; callers may catch it.
-            raise ValueError("config must be a path or a dict")  # noqa: TRY004
+            raise TypeError(f"config must be a path or a dict, not {type(config).__name__}")
 
         # Extract colors from SVG logo, then let any explicit `colors:` block
         # in the config override the auto-derived values on a per-key basis.
