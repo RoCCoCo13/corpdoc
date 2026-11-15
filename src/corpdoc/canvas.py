@@ -61,7 +61,8 @@ def brand_split_inline(text, n, accent_hex, primary_hex):
 class CorpCanvas(canvas.Canvas):
     """
     Canvas that draws corporate header and footer on every page except
-    the cover (page 1) and version history (page 2).
+    the leading unnumbered pages: cover and version history, when present
+    (`_corp["unnumbered_pages"]`, default 2).
     """
 
     def __init__(self, *args, **kwargs):
@@ -83,11 +84,12 @@ class CorpCanvas(canvas.Canvas):
 
     def _draw_header_footer(self, total_pages):
         pn = self._pageNumber
-        # Skip cover (page 1) and version history (page 2)
-        if pn <= 2:
+        corp = self._corp
+        # Skip cover and version history (whichever of them are enabled)
+        skip = corp.get("unnumbered_pages", 2)
+        if pn <= skip:
             return
 
-        corp = self._corp
         w, h = self._pagesize
         accent = corp.get("accent", "#b9885a")
         primary = corp.get("primary", "#2e1e19")
@@ -98,7 +100,7 @@ class CorpCanvas(canvas.Canvas):
         self._draw_header(w, h, corp, accent, primary, split_n)
 
         # ── FOOTER ──
-        self._draw_footer(w, h, corp, accent, primary, split_n, pn, total_pages, lang)
+        self._draw_footer(w, h, corp, accent, primary, split_n, pn - skip, total_pages - skip, lang)
 
     def _draw_header(self, w, h, corp, accent, primary, split_n):
         # Logo right-aligned
@@ -211,8 +213,8 @@ class CorpCanvas(canvas.Canvas):
 
         self.setFont("Helvetica", 7)
         self.setFillColor(HexColor("#aaaaaa"))
-        # Page numbering accounts for cover + version page
-        self.drawRightString(w - 2 * cm, footer_bottom, f"{pg} {pn - 2} {of} {total - 2}")
+        # pn / total already exclude the unnumbered front pages
+        self.drawRightString(w - 2 * cm, footer_bottom, f"{pg} {pn} {of} {total}")
 
     @staticmethod
     def _group_fields(fields):

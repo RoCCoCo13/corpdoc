@@ -55,6 +55,22 @@ LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, BOTTOM_MARGIN = 2 * cm, 2 * cm, 2.2 * cm,
 FRAME_PADDING = 6
 
 
+_TRUE_WORDS = {"true", "yes", "on", "1"}
+_FALSE_WORDS = {"false", "no", "off", "0"}
+
+
+def _as_bool(value, default):
+    """Read a config / frontmatter flag. Unrecognised values keep `default`."""
+    if isinstance(value, bool):
+        return value
+    word = str(value).strip().lower()
+    if word in _TRUE_WORDS:
+        return True
+    if word in _FALSE_WORDS:
+        return False
+    return default
+
+
 class CorpDocTemplate(BaseDocTemplate):
     """
     BaseDocTemplate subclass with two page templates (portrait A4 and
@@ -211,13 +227,20 @@ class CorpDoc:
             ]
         )
 
+        sections = self._resolve_sections(meta)
+
         elements = []
-        elements.extend(self._build_cover(title, subtitle, meta, lang))
-        elements.extend(self._build_version_history(meta, lang))
-        elements.extend(self._build_toc(lang))
+        if sections["cover"]:
+            elements.extend(self._build_cover(title, subtitle, meta, lang))
+        if sections["version_history"]:
+            elements.extend(self._build_version_history(meta, lang))
+        if sections["toc"]:
+            elements.extend(self._build_toc(lang))
         elements.extend(self._build_body(blocks))
 
         corp_data = self._build_corp_data(lang)
+        # Cover and version history carry no header/footer and no page number.
+        corp_data["unnumbered_pages"] = int(sections["cover"]) + int(sections["version_history"])
 
         def canvas_maker(filename, pagesize=A4, **kw):
             return CorpCanvas(filename, pagesize=pagesize, _corp=corp_data, **kw)
@@ -255,6 +278,28 @@ class CorpDoc:
                 if blocks[1]["type"] == "h" and blocks[1]["level"] == 2:
                     return self._plain(blocks[1]["text"])
         return ""
+
+    SECTION_KEYS = ("cover", "version_history", "toc")
+
+    def _resolve_sections(self, meta):
+        """
+        Which front pages to emit. Order of precedence: frontmatter
+        (`sections:` block, or the same keys at top level) > config
+        `sections:` > default (all enabled).
+        """
+        cfg_sections = self.cfg.get("sections") or {}
+        fm_sections = meta.get("sections")
+        if not isinstance(fm_sections, dict):
+            fm_sections = {}
+
+        resolved = {}
+        for key in self.SECTION_KEYS:
+            value = True
+            for source in (cfg_sections, meta, fm_sections):
+                if key in source and not isinstance(source[key], (dict, list)):
+                    value = _as_bool(source[key], value)
+            resolved[key] = value
+        return resolved
 
     def _build_corp_data(self, lang):
         company = self.cfg.get("company", {})
