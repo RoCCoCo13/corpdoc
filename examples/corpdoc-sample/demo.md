@@ -158,7 +158,7 @@ landscape so the content stays readable. The threshold is configurable via
 
 # 3. Diagrams
 
-Mermaid diagrams are rendered on your own machine when the Mermaid CLI (`mmdc`) is installed; the diagram source is never sent to an online service. Without `mmdc`, the source is shown as a styled block in the brand colors, as below.
+Mermaid diagrams are rendered on your own machine when the Mermaid CLI (`mmdc`) is installed; the diagram source is never sent to an online service. Without `mmdc`, the source is shown instead as a styled block in the brand colors.
 
 ```mermaid
 flowchart LR
