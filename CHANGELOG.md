@@ -78,6 +78,11 @@ filled, and words at wrapped source lines are no longer glued together
   or table cell in the Markdown source ("line one⏎line two") rendered as
   "line oneline two". It now renders as a space. Paragraphs become slightly
   longer where this happened, so page breaks can shift.
+- Headings containing `&` or `<` were mangled in the table of contents.
+- A wide table at the very start of the body left a blank page before it,
+  which also counted towards `max_pages`.
+- A config `sections` that is not a mapping crashed the render; it now
+  prints a warning and uses the defaults.
 - A code block without a language (a bare ` ``` ` fence, or an indented code
   block) crashed the render with `KeyError: 'attrs'`.
 - The alt text of an inline image was dropped instead of printed (mistune v3
