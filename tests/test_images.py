@@ -198,3 +198,13 @@ def test_wide_and_tall_images_fit_the_page(tmp_path):
     )
 
     assert _pdf_image_count(out) == 2
+
+
+def test_image_block_alt_text_spanning_two_source_lines():
+    blocks = parse_blocks("![First line\nsecond line](a.png)")
+    assert blocks == [{"type": "image", "src": "a.png", "alt": "First line second line"}]
+
+
+def test_image_followed_by_text_on_next_line_is_not_a_block_image():
+    blocks = parse_blocks("![Alt](a.png)\nCaption-like text")
+    assert [b["type"] for b in blocks] == ["p"]

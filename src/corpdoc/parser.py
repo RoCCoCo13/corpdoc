@@ -121,12 +121,16 @@ def _tokens_to_blocks(tokens, _inline_to_xml=None):
     return blocks
 
 
+# Line-break tokens: mistune v3 names, plus the names used by older versions.
+_BREAK_TOKENS = ("softbreak", "linebreak", "softline_break", "line_break")
+
+
 def _sole_image(children):
     """Return an image block if the inline children are exactly one image."""
     meaningful = [
         c
         for c in children
-        if not (c["type"] in ("softline_break", "line_break"))
+        if c["type"] not in _BREAK_TOKENS
         and not (c["type"] == "text" and not c.get("raw", "").strip())
     ]
     if len(meaningful) != 1 or meaningful[0]["type"] != "image":
@@ -144,7 +148,7 @@ def _plain_text(children):
     for child in children:
         if "children" in child:
             parts.append(_plain_text(child["children"]))
-        elif child["type"] in ("softline_break", "line_break"):
+        elif child["type"] in _BREAK_TOKENS:
             parts.append(" ")
         elif child["type"] != "raw_html":
             parts.append(child.get("raw", ""))
