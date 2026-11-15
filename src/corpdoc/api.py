@@ -45,6 +45,7 @@ from corpdoc.colors import extract_colors_from_svg, assign_roles
 from corpdoc.parser import _xml_escape, parse_frontmatter, parse_blocks, detect_language
 from corpdoc.styles import build_styles
 from corpdoc.flowables import HRLine, CoverPageFlowable
+from corpdoc._config import as_bool as _as_bool
 from corpdoc.canvas import CorpCanvas
 from corpdoc.fonts import resolve_fonts, warn_unsupported
 from corpdoc.i18n import t
@@ -56,22 +57,6 @@ from corpdoc.mermaid import PNG_SCALE, MermaidRenderer
 LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, BOTTOM_MARGIN = 2 * cm, 2 * cm, 2.2 * cm, 3.2 * cm
 # ReportLab frames keep a 6 pt padding on every side.
 FRAME_PADDING = 6
-
-
-_TRUE_WORDS = {"true", "yes", "on", "1"}
-_FALSE_WORDS = {"false", "no", "off", "0"}
-
-
-def _as_bool(value, default):
-    """Read a config / frontmatter flag. Unrecognised values keep `default`."""
-    if isinstance(value, bool):
-        return value
-    word = str(value).strip().lower()
-    if word in _TRUE_WORDS:
-        return True
-    if word in _FALSE_WORDS:
-        return False
-    return default
 
 
 class RenderResult(str):
@@ -379,7 +364,16 @@ class CorpDoc:
         (`sections:` block, or the same keys at top level) > config
         `sections:` > default (all enabled).
         """
-        cfg_sections = self.cfg.get("sections") or {}
+        cfg_sections = self.cfg.get("sections")
+        if cfg_sections is None:
+            cfg_sections = {}
+        elif not isinstance(cfg_sections, dict):
+            print(
+                "Warning: config 'sections' must be a mapping of cover / version_history / toc "
+                f"(got {cfg_sections!r}); using the defaults.",
+                file=sys.stderr,
+            )
+            cfg_sections = {}
         fm_sections = meta.get("sections")
         if not isinstance(fm_sections, dict):
             fm_sections = {}
@@ -394,23 +388,41 @@ class CorpDoc:
         return resolved
 
     def _resolve_max_pages(self, meta):
-        """Body-page limit: frontmatter `max_pages` > `defaults.max_pages` > None."""
-        raw = meta.get("max_pages")
-        if raw in (None, ""):
-            raw = (self.cfg.get("defaults") or {}).get("max_pages")
-        if raw in (None, ""):
-            return None
-        try:
-            limit = int(str(raw).strip())
-        except ValueError:
-            limit = 0
-        if limit < 1:
+        """
+        Body-page limit: frontmatter `max_pages` > `defaults.max_pages` > None.
+
+        An invalid value prints a warning and is skipped, so a typo in one
+        document's frontmatter does not remove the limit set in the config.
+        """
+        sources = (
+            ("frontmatter", meta.get("max_pages")),
+            ("config defaults", (self.cfg.get("defaults") or {}).get("max_pages")),
+        )
+        for origin, raw in sources:
+            if raw in (None, ""):
+                continue
+            limit = self._parse_max_pages(raw)
+            if limit is not None:
+                return limit
             print(
-                f"Warning: max_pages must be a positive integer (got {raw!r}); limit ignored.",
+                f"Warning: max_pages must be a positive whole number (got {raw!r} in the "
+                f"{origin}); value ignored.",
                 file=sys.stderr,
             )
+        return None
+
+    @staticmethod
+    def _parse_max_pages(raw):
+        """Return `raw` as a positive int, or None. Accepts 12, "12" and 12.0."""
+        if isinstance(raw, bool):
             return None
-        return limit
+        try:
+            number = float(str(raw).strip())
+        except ValueError:
+            return None
+        if number < 1 or number != int(number):
+            return None
+        return int(number)
 
     def _build_corp_data(self, lang):
         company = self.cfg.get("company", {})

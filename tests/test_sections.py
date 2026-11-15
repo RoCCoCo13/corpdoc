@@ -84,3 +84,12 @@ def test_frontmatter_overrides_config(tmp_path):
 def test_frontmatter_accepts_top_level_keys_and_yaml_booleans(tmp_path):
     md = f"---\ntitle: Doc\ncover: no\nversion_history: off\ntoc: False\n---\n\n{BODY}"
     assert len(_pages(tmp_path, md=md)) == 1
+
+
+@pytest.mark.parametrize("bad", [["cover"], "cover", 3, True])
+def test_config_sections_that_is_not_a_mapping_warns_and_uses_defaults(tmp_path, capsys, bad):
+    out = tmp_path / "out.pdf"
+    CorpDoc(config={**MINIMAL_CONFIG, "sections": bad}).render("# T\n\nBody.\n", output=str(out))
+
+    assert len(pypdf.PdfReader(out).pages) == 4  # cover, version history, TOC, body
+    assert "sections" in capsys.readouterr().err

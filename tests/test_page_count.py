@@ -147,3 +147,32 @@ def test_cli_strict_exits_non_zero_when_over_limit(tmp_path, monkeypatch, capsys
 def test_cli_strict_passes_when_within_limit(tmp_path, monkeypatch):
     _run_cli(tmp_path, monkeypatch, ONE_PAGE, "--strict", max_pages=5)
     cli.main()
+
+
+# ── Review fixes ──────────────────────────────────────────────────────────
+
+
+def test_invalid_frontmatter_max_pages_falls_back_to_config(tmp_path, capsys):
+    md = "---\nmax_pages: 12 pages\n---\n" + ONE_PAGE
+    _, result, _ = _render(tmp_path, md, _cfg(max_pages=20))
+
+    assert result.max_pages == 20
+    assert "max_pages" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", ["1.0", "1", '"1"', " 1 "])
+def test_max_pages_accepts_whole_numbers_in_any_spelling(tmp_path, capsys, value):
+    md = f"---\nmax_pages: {value}\n---\n" + ONE_PAGE
+    _, result, _ = _render(tmp_path, md)
+
+    assert result.max_pages == 1
+    assert "must be" not in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", ["1.5", "0", "-2", "true"])
+def test_max_pages_rejects_non_positive_and_fractional_values(tmp_path, capsys, value):
+    md = f"---\nmax_pages: {value}\n---\n" + ONE_PAGE
+    _, result, _ = _render(tmp_path, md)
+
+    assert result.max_pages is None
+    assert "max_pages" in capsys.readouterr().err
