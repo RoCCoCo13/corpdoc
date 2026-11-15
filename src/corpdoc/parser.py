@@ -11,7 +11,6 @@ from urllib.parse import unquote
 import mistune
 import yaml
 
-
 # Deepest list level with its own style (0-based): three levels in total.
 MAX_LIST_LEVEL = 2
 

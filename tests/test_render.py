@@ -6,7 +6,6 @@ import textwrap
 
 from corpdoc.api import CorpDoc
 
-
 MINIMAL_CONFIG = {
     "company": {
         "legal_name": "Test Corp SL",

@@ -6,8 +6,8 @@ to get a dict-like object of all named styles.
 """
 
 from reportlab.lib.colors import HexColor, white
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 
 from corpdoc.fonts import BUILTIN_FONTS

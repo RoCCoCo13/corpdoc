@@ -5,9 +5,9 @@ Header: brand tagline (with split-color styling) on left, logo on right.
 Footer: company legal info with key/value brand-split coloring, page numbers.
 """
 
-from reportlab.pdfgen import canvas
 from reportlab.lib.colors import HexColor
 from reportlab.lib.units import cm
+from reportlab.pdfgen import canvas
 
 from corpdoc.fonts import BUILTIN_FONTS
 from corpdoc.i18n import t

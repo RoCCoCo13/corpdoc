@@ -7,7 +7,6 @@ from reportlab.pdfgen.canvas import Canvas
 
 from corpdoc.logo import Logo
 
-
 SIMPLE_SVG = """<?xml version="1.0"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 40" width="100" height="40">
   <rect x="0" y="0" width="100" height="40" fill="#1F4129"/>

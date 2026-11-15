@@ -10,8 +10,8 @@ natively via svglib, so there's no need for an external conversion step.
 import os
 
 from PIL import Image as PILImage
-from svglib.svglib import svg2rlg
 from reportlab.graphics import renderPDF
+from svglib.svglib import svg2rlg
 
 
 class Logo:
@@ -29,7 +29,7 @@ class Logo:
         - Neither present → Logo is falsy; draw() is a no-op.
     """
 
-    __slots__ = ("kind", "path", "width", "height", "_drawing")
+    __slots__ = ("_drawing", "height", "kind", "path", "width")
 
     def __init__(self, cfg):
         self.kind = None

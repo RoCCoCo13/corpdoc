@@ -15,8 +15,7 @@ from pathlib import Path
 
 from corpdoc import __version__
 from corpdoc.api import CorpDoc
-from corpdoc.colors import extract_colors_from_svg, assign_roles
-
+from corpdoc.colors import assign_roles, extract_colors_from_svg
 
 # Reconfigure stdout/stderr to UTF-8 so unicode glyphs render on Windows consoles
 # that default to cp1252. Python 3.7+ exposes reconfigure(); guard for safety.
