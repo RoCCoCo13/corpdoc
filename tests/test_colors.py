@@ -29,9 +29,8 @@ STYLE_ATTR_SVG = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 def _write_tmp_svg(content):
-    f = tempfile.NamedTemporaryFile(mode="w", suffix=".svg", delete=False)
-    f.write(content)
-    f.close()
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".svg", delete=False) as f:
+        f.write(content)
     return f.name
 
 

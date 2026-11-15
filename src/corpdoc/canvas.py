@@ -117,10 +117,7 @@ class CorpCanvas(canvas.Canvas):
             target_w = 170 * header_scale
             sc = target_w / iw
             dw, dh = iw * sc, ih * sc
-            try:
-                logo.draw(self, w - 2 * cm - dw, h - 0.6 * cm - dh, dw, dh)
-            except Exception:
-                pass
+            logo.draw(self, w - 2 * cm - dw, h - 0.6 * cm - dh, dw, dh)
 
         # Tagline (left)
         tagline = corp.get("tagline", "")

@@ -8,10 +8,15 @@ natively via svglib, so there's no need for an external conversion step.
 """
 
 import os
+import sys
 
 from PIL import Image as PILImage
 from reportlab.graphics import renderPDF
 from svglib.svglib import svg2rlg
+
+
+def _warn(message):
+    print(f"Warning: {message}", file=sys.stderr)
 
 
 class Logo:
@@ -29,7 +34,7 @@ class Logo:
         - Neither present → Logo is falsy; draw() is a no-op.
     """
 
-    __slots__ = ("_drawing", "height", "kind", "path", "width")
+    __slots__ = ("_drawing", "_warned", "height", "kind", "path", "width")
 
     def __init__(self, cfg):
         self.kind = None
@@ -37,6 +42,7 @@ class Logo:
         self.width = None
         self.height = None
         self._drawing = None
+        self._warned = False
 
         logo_cfg = (cfg or {}).get("logo", {}) or {}
         png = logo_cfg.get("png", "") or ""
@@ -45,30 +51,48 @@ class Logo:
         if png and os.path.exists(png):
             try:
                 with PILImage.open(png) as im:
-                    self.kind = "png"
-                    self.path = png
-                    self.width, self.height = im.size
+                    size = im.size
+            except Exception as exc:  # noqa: BLE001 - PIL raises many unrelated types
+                _warn(f"logo could not be read: {png} ({exc.__class__.__name__}: {exc})")
+            else:
+                self.kind = "png"
+                self.path = png
+                self.width, self.height = size
                 return
-            except Exception:
-                pass
 
         if svg and os.path.exists(svg):
             try:
                 drawing = svg2rlg(svg)
-            except Exception:
-                drawing = None
-            if drawing is not None:
-                self.kind = "svg"
-                self.path = svg
-                self.width = drawing.width
-                self.height = drawing.height
-                self._drawing = drawing
+            except Exception as exc:  # noqa: BLE001 - svglib / lxml raise many unrelated types
+                _warn(f"logo could not be read: {svg} ({exc.__class__.__name__}: {exc})")
+                return
+            if drawing is None or drawing.width <= 0 or drawing.height <= 0:
+                _warn(f"logo could not be read: {svg} (not a valid SVG)")
+                return
+            self.kind = "svg"
+            self.path = svg
+            self.width = drawing.width
+            self.height = drawing.height
+            self._drawing = drawing
 
     def __bool__(self):
         return self.kind is not None
 
     def draw(self, canvas, x, y, width, height):
-        """Draw the logo onto a ReportLab canvas at (x, y) scaled to (width, height)."""
+        """
+        Draw the logo onto a ReportLab canvas at (x, y) scaled to (width, height).
+
+        A logo that cannot be drawn never fails the render: the problem is
+        reported once on stderr and the logo is left out.
+        """
+        try:
+            self._draw(canvas, x, y, width, height)
+        except Exception as exc:  # noqa: BLE001 - a broken logo must not break the document
+            if not self._warned:
+                self._warned = True
+                _warn(f"logo could not be drawn: {self.path} ({exc.__class__.__name__}: {exc})")
+
+    def _draw(self, canvas, x, y, width, height):
         if self.kind == "png":
             canvas.drawImage(
                 self.path,
@@ -83,7 +107,9 @@ class Logo:
             sx = width / self.width
             sy = height / self.height
             canvas.saveState()
-            canvas.translate(x, y)
-            canvas.scale(sx, sy)
-            renderPDF.draw(self._drawing, canvas, 0, 0)
-            canvas.restoreState()
+            try:
+                canvas.translate(x, y)
+                canvas.scale(sx, sy)
+                renderPDF.draw(self._drawing, canvas, 0, 0)
+            finally:
+                canvas.restoreState()
