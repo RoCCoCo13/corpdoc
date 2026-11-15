@@ -12,6 +12,9 @@ import mistune
 import yaml
 
 
+# Deepest list level with its own style (0-based): three levels in total.
+MAX_LIST_LEVEL = 2
+
 # ── Block parsing ──────────────────────────────────────────────────────────
 
 
@@ -54,7 +57,7 @@ def parse_blocks(md_text, mono_font="Courier"):
         {'type': 'h',       'level': 1-4,    'text': str}  <- ReportLab XML
         {'type': 'p',       'text': str}                    <- ReportLab XML
         {'type': 'list',    'ordered': bool, 'start': int,
-                            'items': [{'text': str, 'level': 0|1,
+                            'items': [{'text': str, 'level': 0|1|2,
                                        'ordered': bool, 'number': int|None}]}
         {'type': 'table',   'rows': [[str, ...], ...]}      <- cells are XML
         {'type': 'mermaid', 'content': str}
@@ -171,7 +174,12 @@ def _list_items(children, depth, ordered=False, start=1, _inline_to_xml=None):
         for child in item.get("children", []):
             if child["type"] in ("block_text", "paragraph"):
                 text = _inline_to_xml(child.get("children", []))
-                entry = {"text": text, "level": min(depth, 1), "ordered": ordered, "number": None}
+                entry = {
+                    "text": text,
+                    "level": min(depth, MAX_LIST_LEVEL),
+                    "ordered": ordered,
+                    "number": None,
+                }
                 # Only the first paragraph of an item gets the number.
                 if ordered and not numbered:
                     entry["number"] = number
@@ -227,6 +235,15 @@ def _xml_escape(text):
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+# Link targets that are rendered as clickable links.
+_LINKABLE_RE = re.compile(r"^(https?://|ftp://|mailto:|tel:)", re.IGNORECASE)
+
+
+def _attr_escape(text):
+    """Escape a value for use inside a double-quoted XML attribute."""
+    return _xml_escape(text).replace('"', "&quot;").replace("'", "&#39;")
+
+
 def _inline_to_xml(children, mono_font="Courier"):
     """Recursively convert inline AST tokens to ReportLab XML."""
     parts = []
@@ -247,7 +264,15 @@ def _inline_to_xml(children, mono_font="Courier"):
         elif t in ("softline_break", "line_break"):
             parts.append(" ")
         elif t == "link":
-            parts.append(_inline_to_xml(child.get("children", []), mono_font))
+            label = _inline_to_xml(child.get("children", []), mono_font)
+            url = ((child.get("attrs") or {}).get("url") or "").strip()
+            if _LINKABLE_RE.match(url):
+                parts.append(f'<a href="{_attr_escape(url)}">{label}</a>')
+            else:
+                # Anchors and relative paths have no target inside the PDF
+                # (ReportLab would fail on the undefined destination), and
+                # other schemes are not worth making clickable.
+                parts.append(label)
         elif t == "image":
             # Inline image: only its alt text is kept. mistune v3 stores the
             # alt text as child tokens (older versions used attrs["alt"]).

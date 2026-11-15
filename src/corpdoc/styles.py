@@ -144,6 +144,20 @@ def build_styles(colors, fonts=None):
         )
     )
 
+    add(
+        P(
+            "CBullet3",
+            parent=base["Normal"],
+            fontName=F["regular"],
+            fontSize=9,
+            textColor=HexColor("#666666"),
+            leading=12.5,
+            spaceAfter=1 * mm,
+            leftIndent=24 * mm,
+            bulletIndent=19 * mm,
+        )
+    )
+
     # Code
     add(
         P(

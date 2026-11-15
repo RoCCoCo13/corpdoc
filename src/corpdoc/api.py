@@ -564,7 +564,7 @@ class CorpDoc:
                 for item in b["items"]:
                     text = item["text"] if isinstance(item, dict) else item
                     level = item.get("level", 0) if isinstance(item, dict) else 0
-                    style = S["CBullet2"] if level > 0 else S["CBullet"]
+                    style = S[("CBullet", "CBullet2", "CBullet3")[max(0, min(level, 2))]]
                     ordered = isinstance(item, dict) and item.get("ordered")
                     number = item.get("number") if ordered else None
                     if number is not None:

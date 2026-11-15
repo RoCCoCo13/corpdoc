@@ -96,3 +96,46 @@ def test_numbers_reach_the_pdf(tmp_path):
     text = _body_text(tmp_path, "# T\n\n1. alpha\n2. beta\n   1. gamma\n3. delta\n")
     text = " ".join(text.split())
     assert "1. alpha 2. beta 1. gamma 3. delta" in text
+
+
+# ── Three nesting levels (item 6) ─────────────────────────────────────────
+
+DEEP = "- one\n  - two\n    - three\n      - four\n- back"
+
+
+def test_parser_keeps_three_levels():
+    items = parse_blocks(DEEP)[0]["items"]
+    # Levels deeper than the third are clamped to the third.
+    assert [i["level"] for i in items] == [0, 1, 2, 2, 0]
+
+
+def test_each_level_has_its_own_style():
+    doc = CorpDoc(config=MINIMAL_CONFIG)
+    paragraphs = [p for p in doc._build_body(parse_blocks(DEEP)) if hasattr(p, "frags")]
+    assert [p.style.name for p in paragraphs] == [
+        "CBullet",
+        "CBullet2",
+        "CBullet3",
+        "CBullet3",
+        "CBullet",
+    ]
+    styles = doc.styles
+    assert (
+        styles["CBullet"].leftIndent < styles["CBullet2"].leftIndent < styles["CBullet3"].leftIndent
+    )
+
+
+def test_two_level_styles_are_unchanged():
+    styles = CorpDoc(config=MINIMAL_CONFIG).styles
+    assert (styles["CBullet"].leftIndent, styles["CBullet"].fontSize) == pytest.approx(
+        (8 * 72 / 25.4, 10)
+    )
+    assert (styles["CBullet2"].leftIndent, styles["CBullet2"].fontSize) == pytest.approx(
+        (16 * 72 / 25.4, 9.5)
+    )
+
+
+def test_three_level_ordered_list_restarts_per_level():
+    md = "1. a\n   1. b\n      1. c\n      2. d\n   2. e\n2. f"
+    assert _markers(parse_blocks(md)) == ["1.", "1.", "1.", "2.", "2.", "2."]
+    assert [i["level"] for i in parse_blocks(md)[0]["items"]] == [0, 1, 2, 2, 1, 0]
