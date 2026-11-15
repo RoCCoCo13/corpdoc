@@ -183,3 +183,129 @@ def test_mermaid_stays_enabled_for_true_like_or_unknown_values(tmp_path, fake_mm
     fake = fake_mmdc()
     _, images = _render(tmp_path, mermaid=setting)
     assert images == 1 and len(fake.calls) == 1
+
+
+# ── Several diagrams ──────────────────────────────────────────────────────
+
+
+class SlowMmdc(FakeMmdc):
+    """Takes a moment per diagram and records how many run at the same time."""
+
+    def __init__(self, mode="ok"):
+        super().__init__(mode)
+        self._lock = __import__("threading").Lock()
+        self.active = 0
+        self.max_active = 0
+
+    def __call__(self, cmd, **kwargs):
+        import time
+
+        with self._lock:
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+        try:
+            time.sleep(0.05)
+            src, out = cmd[cmd.index("-i") + 1], cmd[cmd.index("-o") + 1]
+            with open(src, encoding="utf-8") as f:
+                source = f.read()
+            with self._lock:
+                self.calls.append((cmd, kwargs))
+                self.sources.append(source)
+            if self.mode == "timeout":
+                raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout"))
+            # The picture width identifies the diagram: "N3" -> 300 px wide.
+            number = int(source.split("N")[1].split()[0])
+            PILImage.new("RGB", (number * 100, 50), (240, 240, 255)).save(out)
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        finally:
+            with self._lock:
+                self.active -= 1
+
+
+def _many(n):
+    return "# Flow\n\n" + "".join(
+        f"Text {i}.\n\n```mermaid\nflowchart LR\n    N{i} --> End\n```\n\n" for i in range(1, n + 1)
+    )
+
+
+def _install(monkeypatch, fake):
+    lookups = []
+
+    def which(name):
+        lookups.append(name)
+        return "/fake/bin/mmdc"
+
+    monkeypatch.setattr(mermaid.shutil, "which", which)
+    monkeypatch.setattr(mermaid.subprocess, "run", fake)
+    return lookups
+
+
+def test_diagrams_render_in_parallel_and_stay_in_document_order(tmp_path, monkeypatch):
+    fake = SlowMmdc()
+    lookups = _install(monkeypatch, fake)
+    out = tmp_path / "out.pdf"
+
+    CorpDoc(config={**MINIMAL_CONFIG, **BODY_ONLY}).render(_many(6), output=str(out))
+
+    assert len(fake.calls) == 6
+    assert fake.max_active > 1  # not one after another
+    assert fake.max_active <= mermaid.MAX_WORKERS
+    widths = [im.image.size[0] for p in pypdf.PdfReader(out).pages for im in p.images]
+    assert sorted(widths) == [100, 200, 300, 400, 500, 600]
+    assert lookups == ["mmdc"]  # looked up once per render, not once per diagram
+
+
+def test_parallel_results_come_back_in_source_order(monkeypatch):
+    _install(monkeypatch, SlowMmdc())
+    renderer = mermaid.MermaidRenderer({})
+    try:
+        sources = [f"flowchart LR\n    N{i} --> End\n" for i in (3, 1, 6, 2, 5, 4)]
+        paths = renderer.render_all(sources)
+        widths = []
+        for path in paths:
+            with PILImage.open(path) as im:
+                widths.append(im.size[0])
+        assert widths == [300, 100, 600, 200, 500, 400]
+    finally:
+        renderer.cleanup()
+
+
+def test_after_a_timeout_no_further_diagrams_are_started(tmp_path, monkeypatch, capsys):
+    fake = SlowMmdc("timeout")
+    _install(monkeypatch, fake)
+    out = tmp_path / "out.pdf"
+
+    CorpDoc(config={**MINIMAL_CONFIG, **BODY_ONLY}).render(_many(12), output=str(out))
+
+    # Only the diagrams already running when the first one timed out.
+    assert 1 <= len(fake.calls) <= mermaid.MAX_WORKERS
+    text = "\n".join(p.extract_text() for p in pypdf.PdfReader(out).pages)
+    assert text.count("[ Diagram ]") == 12  # every diagram falls back to text
+    err = capsys.readouterr().err
+    assert "timed out" in err and "not attempted" in err
+
+
+def test_a_diagram_with_a_syntax_error_does_not_stop_the_others(tmp_path, monkeypatch, capsys):
+    class OneBad(SlowMmdc):
+        def __call__(self, cmd, **kwargs):
+            with open(cmd[cmd.index("-i") + 1], encoding="utf-8") as f:
+                if "N2 " in f.read():
+                    return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="Parse error")
+            return super().__call__(cmd, **kwargs)
+
+    fake = OneBad()
+    _install(monkeypatch, fake)
+    out = tmp_path / "out.pdf"
+
+    CorpDoc(config={**MINIMAL_CONFIG, **BODY_ONLY}).render(_many(5), output=str(out))
+
+    widths = [im.image.size[0] for p in pypdf.PdfReader(out).pages for im in p.images]
+    assert sorted(widths) == [100, 300, 400, 500]
+    assert "Mermaid diagram 2" in capsys.readouterr().err
+
+
+def test_text_fallback_keeps_special_characters(tmp_path, fake_mmdc):
+    fake_mmdc(available=False)
+    md = "# Flow\n\n```mermaid\nflowchart LR\n    A[R&D <b>team</b>] --> B\n```\n"
+    text, _ = _render(tmp_path, md=md)
+    assert "A[R&D <b>team</b>] --> B" in " ".join(text.split())

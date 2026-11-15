@@ -48,7 +48,9 @@ filled, and words at wrapped source lines are no longer glued together
   every style including cover, header and footer.
 - **Warning for characters the fonts cannot show.** With the default family,
   one warning per render lists characters that the built-in fonts cannot
-  encode and that therefore appear as a box (for example `₂`).
+  encode and that therefore appear as a box (for example `₂`). The check
+  covers the text that is actually drawn, with the font that draws it
+  (regular, bold, italic, monospace), including custom font families.
 - **Clickable links.** Links to `http(s)`, `ftp`, `mailto` and `tel` targets
   are emitted as real PDF links, with the URL escaped. Their look is
   unchanged. Anchor and relative links stay plain text.
@@ -58,6 +60,10 @@ filled, and words at wrapped source lines are no longer glued together
   as images, with a timeout (`mermaid.timeout`, default 30 s) and cleanup.
   Without `mmdc`, or on failure, the previous text block is kept and a
   warning is printed. `mermaid.enabled: false` keeps the text block silently.
+  Up to four diagrams are rendered at the same time; if `mmdc` times out or
+  cannot be started, the remaining diagrams are not attempted.
+- **Concurrent renders.** One `CorpDoc` object can render several documents
+  at the same time (for example from a thread pool).
 
 ### Changed
 - `corpdoc init` writes the new `sections` and `fonts` blocks (with their
@@ -91,6 +97,7 @@ filled, and words at wrapped source lines are no longer glued together
   block) crashed the render with `KeyError: 'attrs'`.
 - The alt text of an inline image was dropped instead of printed (mistune v3
   stores it as child tokens).
+- The Mermaid text block garbled diagram sources containing `&` or `<`.
 - A logo that cannot be read or drawn is now reported with a warning. Before,
   the problem was swallowed and the logo was silently left out.
 - A truncated SVG logo (zero size) is rejected with a warning instead of

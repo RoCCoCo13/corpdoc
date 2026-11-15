@@ -17,9 +17,9 @@ Usage:
     doc.render('input.md', output='output.pdf')
 """
 
+import html
 import os
 import re
-import sys
 from datetime import date
 from pathlib import Path
 
@@ -41,7 +41,7 @@ from reportlab.platypus import (
 from reportlab.platypus.doctemplate import ActionFlowable
 from reportlab.platypus.tableofcontents import TableOfContents
 
-from corpdoc._config import as_bool as _as_bool
+from corpdoc._util import as_bool, warn, xml_escape
 from corpdoc.canvas import CorpCanvas
 from corpdoc.colors import assign_roles, extract_colors_from_svg
 from corpdoc.flowables import CoverPageFlowable, HRLine
@@ -50,7 +50,7 @@ from corpdoc.i18n import t
 from corpdoc.images import build_image_flowables
 from corpdoc.logo import Logo
 from corpdoc.mermaid import PNG_SCALE, MermaidRenderer
-from corpdoc.parser import _xml_escape, detect_language, parse_blocks, parse_frontmatter
+from corpdoc.parser import detect_language, parse_blocks, parse_frontmatter
 from corpdoc.styles import build_styles
 
 # Page margins shared by the portrait and landscape templates.
@@ -92,6 +92,58 @@ class _BodyStart(ActionFlowable):
         doc.body_start_page = max(1, doc.page)
 
 
+class _RenderContext:
+    """
+    Everything that belongs to one `render()` call. It is passed along
+    explicitly, so one CorpDoc object can render several documents at once.
+    """
+
+    def __init__(self, base_dir=None, mermaid=None):
+        self.base_dir = base_dir or os.getcwd()
+        self.mermaid = mermaid
+        # Text that ends up in the PDF, by the font that draws it
+        # ("regular", "bold", "italic", "mono"), for the missing-glyph warning.
+        self.drawn = {}
+
+    _INLINE_ROLES = (
+        ("bold", re.compile(r"<b>(.*?)</b>", re.DOTALL)),
+        ("italic", re.compile(r"<i>(.*?)</i>", re.DOTALL)),
+        ("mono", re.compile(r"<font face=[^>]*>(.*?)</font>", re.DOTALL)),
+    )
+
+    def note(self, markup, role="regular"):
+        """Record paragraph markup drawn with the `role` font."""
+        if not markup:
+            return
+        self.note_plain(_markup_to_text(markup), role)
+        for inline_role, pattern in self._INLINE_ROLES:
+            for inner in pattern.findall(markup):
+                self.note_plain(_markup_to_text(inner), inline_role)
+
+    def note_plain(self, text, role="regular"):
+        """Record plain text drawn with the `role` font."""
+        if text:
+            self.drawn.setdefault(role, []).append(str(text))
+
+
+def _markup_to_text(markup):
+    return html.unescape(re.sub(r"<[^>]+>", "", markup))
+
+
+def _strings(value):
+    """Every string inside a (nested) frontmatter value."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _strings(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _strings(item)
+    elif value is not None and not isinstance(value, bool):
+        yield str(value)
+
+
 class CorpDocTemplate(BaseDocTemplate):
     """
     BaseDocTemplate subclass with two page templates (portrait A4 and
@@ -112,7 +164,7 @@ class CorpDocTemplate(BaseDocTemplate):
             page = self.page - self.unnumbered_pages
             # The TOC parses each entry as paragraph markup, so the plain
             # text has to be escaped again.
-            self.notify("TOCEntry", (level, _xml_escape(flowable.getPlainText()), page))
+            self.notify("TOCEntry", (level, xml_escape(flowable.getPlainText()), page))
 
 
 class CorpDoc:
@@ -180,17 +232,15 @@ class CorpDoc:
         # Warn early if a logo was configured but nothing resolved
         logo_cfg = self.cfg.get("logo", {}) or {}
         if (logo_cfg.get("png") or logo_cfg.get("svg")) and not self.logo:
-            print(
-                "Warning: logo was configured but neither PNG nor SVG could be "
+            warn(
+                "logo was configured but neither PNG nor SVG could be "
                 "loaded — PDF will render without logo.",
-                file=sys.stderr,
             )
 
         self.fonts = resolve_fonts(self.cfg)
         self.styles = build_styles(self.colors, self.fonts)
 
         # Set for the duration of a render() call (see MermaidRenderer).
-        self._mermaid = None
 
         # Page counts of the most recent render() call.
         self.total_pages = None
@@ -219,12 +269,10 @@ class CorpDoc:
         else:
             md_text = str(md_input)
             default_base = os.getcwd()
-        self._base_dir = str(base_dir) if base_dir else default_base
+        ctx = _RenderContext(str(base_dir) if base_dir else default_base)
 
         meta, body = parse_frontmatter(md_text)
         blocks = parse_blocks(body, mono_font=self.fonts["mono"])
-        # One warning per render for characters that would come out as boxes.
-        warn_unsupported(md_text, self.fonts)
 
         lang_cfg = self.cfg.get("defaults", {}).get("language", "auto")
         lang = detect_language(body) if lang_cfg == "auto" else lang_cfg
@@ -296,9 +344,16 @@ class CorpDoc:
 
         # Rendered Mermaid diagrams are temp files that ReportLab reads
         # during build(), so they are removed only once the build is over.
-        self._mermaid = MermaidRenderer(self.cfg)
+        ctx.mermaid = MermaidRenderer(self.cfg)
         try:
-            body = self._build_body(blocks)
+            body = self._build_body(blocks, ctx)
+            # One warning per render for characters that would come out as
+            # boxes. Frontmatter values are drawn on the cover and the version
+            # history, in the regular and the bold face.
+            for text in _strings(meta):
+                ctx.note_plain(text, "regular")
+                ctx.note_plain(text, "bold")
+            warn_unsupported(ctx.drawn, self.fonts)
             if body:
                 body = self._open_body_in_landscape(doc, elements, body)
                 elements.append(_BodyStart())
@@ -310,8 +365,7 @@ class CorpDoc:
             else:
                 doc.build(elements, canvasmaker=canvas_maker)
         finally:
-            self._mermaid.cleanup()
-            self._mermaid = None
+            ctx.mermaid.cleanup()
 
         total = canvases[-1].page_count if canvases else 0
         body_start = getattr(doc, "body_start_page", None)
@@ -319,10 +373,8 @@ class CorpDoc:
         result = RenderResult(output, total, body_pages, self._resolve_max_pages(meta))
         self.total_pages, self.body_pages = total, body_pages
         if result.over_limit:
-            print(
-                f"Warning: document body has {body_pages} pages, "
-                f"more than max_pages = {result.max_pages}.",
-                file=sys.stderr,
+            warn(
+                f"document body has {body_pages} pages, more than max_pages = {result.max_pages}.",
             )
         return result
 
@@ -399,10 +451,9 @@ class CorpDoc:
         if cfg_sections is None:
             cfg_sections = {}
         elif not isinstance(cfg_sections, dict):
-            print(
-                "Warning: config 'sections' must be a mapping of cover / version_history / toc "
+            warn(
+                "config 'sections' must be a mapping of cover / version_history / toc "
                 f"(got {cfg_sections!r}); using the defaults.",
-                file=sys.stderr,
             )
             cfg_sections = {}
         fm_sections = meta.get("sections")
@@ -414,7 +465,7 @@ class CorpDoc:
             value = True
             for source in (cfg_sections, meta, fm_sections):
                 if key in source and not isinstance(source[key], (dict, list)):
-                    value = _as_bool(source[key], value)
+                    value = as_bool(source[key], value)
             resolved[key] = value
         return resolved
 
@@ -435,10 +486,9 @@ class CorpDoc:
             limit = self._parse_max_pages(raw)
             if limit is not None:
                 return limit
-            print(
-                f"Warning: max_pages must be a positive whole number (got {raw!r} in the "
+            warn(
+                f"max_pages must be a positive whole number (got {raw!r} in the "
                 f"{origin}); value ignored.",
-                file=sys.stderr,
             )
         return None
 
@@ -481,12 +531,9 @@ class CorpDoc:
         cover_cfg = self.cfg.get("cover", {}) or {}
         style = cover_cfg.get("style", "classic")
         if style not in CoverPageFlowable.STYLES:
-            import sys
-
-            print(
-                f"Warning: unknown cover.style '{style}'. "
+            warn(
+                f"unknown cover.style '{style}'. "
                 f"Falling back to 'classic'. Valid: {', '.join(CoverPageFlowable.STYLES)}",
-                file=sys.stderr,
             )
             style = "classic"
 
@@ -619,23 +666,31 @@ class CorpDoc:
             PageBreak(),
         ]
 
-    def _build_body(self, blocks):
+    def _build_body(self, blocks, ctx=None):
+        ctx = ctx or _RenderContext()
         els = []
         S = self.styles
         c = self.colors
+
+        # All diagrams are rendered up front, several at a time.
+        sources = [b["content"] for b in blocks if b["type"] == "mermaid"]
+        diagrams = iter(ctx.mermaid.render_all(sources) if ctx.mermaid else [None] * len(sources))
 
         for b in blocks:
             tp = b["type"]
             if tp == "h":
                 lvl = min(b["level"], 4)
+                ctx.note(b["text"], "bold")
                 els.append(Paragraph(b["text"], S[f"CH{lvl}"]))
                 if lvl == 1:
                     els.append(HRLine(35, 2, HexColor(c["accent"]), 0, 3 * mm))
             elif tp == "p":
+                ctx.note(b["text"])
                 els.append(Paragraph(b["text"], S["CBody"]))
             elif tp == "list":
                 for item in b["items"]:
                     text = item["text"] if isinstance(item, dict) else item
+                    ctx.note(text)
                     level = item.get("level", 0) if isinstance(item, dict) else 0
                     style = S[("CBullet", "CBullet2", "CBullet3")[max(0, min(level, 2))]]
                     ordered = isinstance(item, dict) and item.get("ordered")
@@ -648,6 +703,9 @@ class CorpDoc:
                     els.append(Paragraph(text, style))
                 els.append(Spacer(1, 2 * mm))
             elif tp == "table":
+                for ri, row in enumerate(b["rows"]):
+                    for cell in row:
+                        ctx.note(cell, "bold" if ri == 0 else "regular")
                 if self._needs_landscape(b["rows"]):
                     els.append(NextPageTemplate("landscape"))
                     els.append(PageBreak())
@@ -657,30 +715,30 @@ class CorpDoc:
                 else:
                     els.extend(self._build_table(b["rows"]))
             elif tp == "mermaid":
-                png = self._mermaid.render(b["content"]) if self._mermaid else None
+                png = next(diagrams)
                 if png:
-                    els.extend(self._build_image(png, "", scale=1 / PNG_SCALE))
+                    els.extend(self._build_image(png, "", ctx, scale=1 / PNG_SCALE))
                     continue
-                content = b["content"].replace("\n", "<br/>")
+                ctx.note_plain(b["content"], "mono")
+                content = xml_escape(b["content"]).replace("\n", "<br/>")
                 els.append(Paragraph(f"<b>[ Diagram ]</b><br/><br/>{content}", S["CMermaid"]))
             elif tp == "code":
-                content = (
-                    b["content"].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                )
+                ctx.note_plain(b["content"], "mono")
+                content = xml_escape(b["content"])
                 content = content.replace("\n", "<br/>").replace(" ", "&nbsp;")
                 els.append(Paragraph(content, S["CCode"]))
             elif tp == "hr":
                 els.append(HRLine(100, 0.5, HexColor(c["secondary"]), 4 * mm, 4 * mm))
             elif tp == "image":
-                els.extend(self._build_image(b["src"], b.get("alt", "")))
+                ctx.note_plain(b.get("alt", ""), "italic")
+                els.extend(self._build_image(b["src"], b.get("alt", ""), ctx))
         return els
 
-    def _build_image(self, src, alt, scale=1.0):
+    def _build_image(self, src, alt, ctx, scale=1.0):
         """Block image scaled to the portrait frame, with the alt text as caption."""
         max_w = A4[0] - LEFT_MARGIN - RIGHT_MARGIN - 2 * FRAME_PADDING
         max_h = A4[1] - TOP_MARGIN - BOTTOM_MARGIN - 2 * FRAME_PADDING
-        base_dir = getattr(self, "_base_dir", None) or os.getcwd()
-        return build_image_flowables(src, alt, base_dir, max_w, max_h, self.styles, scale=scale)
+        return build_image_flowables(src, alt, ctx.base_dir, max_w, max_h, self.styles, scale=scale)
 
     def _needs_landscape(self, rows):
         """

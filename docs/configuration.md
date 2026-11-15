@@ -241,6 +241,11 @@ If `mmdc` is not found, fails, or takes too long, the diagram source is
 printed as a styled text block (the behaviour of earlier versions) and a
 warning is shown.
 
+A document with several diagrams renders up to four of them at the same
+time. If `mmdc` times out or cannot be started at all, the remaining
+diagrams are not attempted, so a broken installation costs one timeout
+rather than one per diagram.
+
 | Key | Type | Description |
 |-----|------|-------------|
 | `enabled` | bool | Set to `false` to always print the source as text, without looking for `mmdc` and without a warning. Default: `true`. |

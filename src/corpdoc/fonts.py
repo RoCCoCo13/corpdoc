@@ -18,12 +18,13 @@ Every consumer reads font names from the dict returned by `resolve_fonts`:
 """
 
 import os
-import sys
 import unicodedata
 import zlib
 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFError, TTFont
+
+from corpdoc._util import warn
 
 FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
 
@@ -45,10 +46,6 @@ _DEJAVU_FILES = {
 }
 
 _VARIANTS = ("regular", "bold", "italic", "bold_italic", "mono")
-
-
-def _warn(message):
-    print(f"Warning: {message}", file=sys.stderr)
 
 
 def _register(name, path):
@@ -124,18 +121,18 @@ def resolve_fonts(cfg):
         if isinstance(family, dict):
             unknown = sorted(set(family) - set(_VARIANTS))
             if unknown:
-                _warn(f"fonts.family: ignoring unknown keys {unknown}; valid: {list(_VARIANTS)}")
+                warn(f"fonts.family: ignoring unknown keys {unknown}; valid: {list(_VARIANTS)}")
             return _custom(family)
         name = str(family or "helvetica").strip().lower()
         if name == "dejavu":
             return _dejavu()
         if name != "helvetica":
-            _warn(
+            warn(
                 f"unknown fonts.family '{family}'. Falling back to 'helvetica'. "
                 "Valid: helvetica, dejavu, or a mapping of TTF paths."
             )
     except (OSError, ValueError, TTFError) as exc:
-        _warn(f"fonts.family could not be loaded ({exc}). Falling back to 'helvetica'.")
+        warn(f"fonts.family could not be loaded ({exc}). Falling back to 'helvetica'.")
     return dict(BUILTIN_FONTS)
 
 
@@ -161,14 +158,14 @@ def _can_draw(font):
     return can_draw
 
 
-def unsupported_chars(text, fonts=None):
+def unsupported_chars(text, fonts=None, role="regular"):
     """
-    Return the characters of `text` that the regular font cannot draw, in
-    order of first appearance. Whitespace and invisible format characters
-    are ignored.
+    Return the characters of `text` that the `role` font ("regular", "bold",
+    "italic", "bold_italic" or "mono") cannot draw, in order of first
+    appearance. Whitespace and invisible format characters are ignored.
     """
     fonts = fonts or BUILTIN_FONTS
-    can_draw = _can_draw(pdfmetrics.getFont(fonts["regular"]))
+    can_draw = _can_draw(pdfmetrics.getFont(fonts[role]))
     missing = []
     for ch in dict.fromkeys(text):
         if ord(ch) < 128 or ch.isspace() or unicodedata.category(ch) in ("Cf", "Cc"):
@@ -179,8 +176,18 @@ def unsupported_chars(text, fonts=None):
 
 
 def warn_unsupported(text, fonts):
-    """Print a single warning if `text` has characters the fonts cannot draw."""
-    missing = unsupported_chars(text, fonts)
+    """
+    Print a single warning if `text` has characters the fonts cannot draw.
+
+    `text` is a string (checked against the regular font) or a mapping of
+    font role -> strings drawn with that font.
+    """
+    by_role = {"regular": [text]} if isinstance(text, str) else text
+    found = {}
+    for role, chunks in by_role.items():
+        for ch in unsupported_chars("".join(chunks), fonts, role):
+            found.setdefault(ch, None)
+    missing = list(found)
     if not missing:
         return
     shown = ", ".join(f"{ch} (U+{ord(ch):04X})" for ch in missing[:8])
@@ -189,4 +196,4 @@ def warn_unsupported(text, fonts):
         hint = 'the built-in fonts cannot encode them. Set fonts.family: "dejavu" in the config.'
     else:
         hint = "the configured font cannot draw them (it has no glyph for them)."
-    _warn(f"{len(missing)} character(s) will show as boxes: {shown}{more} — {hint}")
+    warn(f"{len(missing)} character(s) will show as boxes: {shown}{more} — {hint}")

@@ -11,6 +11,8 @@ from urllib.parse import unquote
 import mistune
 import yaml
 
+from corpdoc._util import xml_escape
+
 # Deepest list level with its own style (0-based): three levels in total.
 MAX_LIST_LEVEL = 2
 
@@ -69,34 +71,23 @@ def parse_blocks(md_text, mono_font="Courier"):
     """
     md = mistune.create_markdown(renderer=None, plugins=["table", "strikethrough"])
     tokens = md(md_text) or []
-    return _tokens_to_blocks(tokens, _Inline(mono_font))
+    return _tokens_to_blocks(tokens, mono_font)
 
 
-class _Inline:
-    """Inline renderer bound to the font used for `code spans`."""
-
-    def __init__(self, mono_font="Courier"):
-        self.mono_font = mono_font
-
-    def __call__(self, children):
-        return _inline_to_xml(children, self.mono_font)
-
-
-def _tokens_to_blocks(tokens, _inline_to_xml=None):
-    _inline_to_xml = _inline_to_xml or _Inline()
+def _tokens_to_blocks(tokens, mono_font="Courier"):
     blocks = []
     for tok in tokens:
         t = tok["type"]
         if t == "heading":
             level = min(tok["attrs"]["level"], 4)
-            text = _inline_to_xml(tok.get("children", []))
+            text = _inline_to_xml(tok.get("children", []), mono_font)
             blocks.append({"type": "h", "level": level, "text": text})
         elif t == "paragraph":
             image = _sole_image(tok.get("children", []))
             if image is not None:
                 blocks.append(image)
                 continue
-            text = _inline_to_xml(tok.get("children", []))
+            text = _inline_to_xml(tok.get("children", []), mono_font)
             blocks.append({"type": "p", "text": text})
         elif t == "block_code":
             info = ((tok.get("attrs") or {}).get("info") or "").strip().lower()
@@ -107,11 +98,11 @@ def _tokens_to_blocks(tokens, _inline_to_xml=None):
                 blocks.append({"type": "code", "lang": info, "content": content})
         elif t == "list":
             ordered, start = _list_attrs(tok)
-            items = _list_items(tok.get("children", []), 0, ordered, start, _inline_to_xml)
+            items = _list_items(tok.get("children", []), 0, ordered, start, mono_font)
             if items:
                 blocks.append({"type": "list", "ordered": ordered, "start": start, "items": items})
         elif t == "table":
-            rows = _table_rows(tok.get("children", []), _inline_to_xml)
+            rows = _table_rows(tok.get("children", []), mono_font)
             if rows:
                 blocks.append({"type": "table", "rows": rows})
         elif t == "thematic_break":
@@ -162,12 +153,11 @@ def _list_attrs(tok):
     return ordered, (start if isinstance(start, int) else 1)
 
 
-def _list_items(children, depth, ordered=False, start=1, _inline_to_xml=None):
+def _list_items(children, depth, ordered=False, start=1, mono_font="Courier"):
     """
     Flatten a (possibly nested) list into items. Every item carries the
     kind of the list it belongs to; numbering restarts in each nested list.
     """
-    _inline_to_xml = _inline_to_xml or _Inline()
     items = []
     number = start
     for item in children:
@@ -176,7 +166,7 @@ def _list_items(children, depth, ordered=False, start=1, _inline_to_xml=None):
         numbered = False
         for child in item.get("children", []):
             if child["type"] in ("block_text", "paragraph"):
-                text = _inline_to_xml(child.get("children", []))
+                text = _inline_to_xml(child.get("children", []), mono_font)
                 entry = {
                     "text": text,
                     "level": min(depth, MAX_LIST_LEVEL),
@@ -196,7 +186,7 @@ def _list_items(children, depth, ordered=False, start=1, _inline_to_xml=None):
                         depth + 1,
                         sub_ordered,
                         sub_start,
-                        _inline_to_xml,
+                        mono_font,
                     )
                 )
         if ordered:
@@ -204,14 +194,13 @@ def _list_items(children, depth, ordered=False, start=1, _inline_to_xml=None):
     return items
 
 
-def _table_rows(children, _inline_to_xml=None):
-    _inline_to_xml = _inline_to_xml or _Inline()
+def _table_rows(children, mono_font="Courier"):
     rows = []
     for section in children:
         if section["type"] == "table_head":
             # Header cells sit directly in children (no table_row wrapper)
             cells = [
-                _inline_to_xml(cell.get("children", []))
+                _inline_to_xml(cell.get("children", []), mono_font)
                 for cell in section.get("children", [])
                 if cell["type"] == "table_cell"
             ]
@@ -222,7 +211,7 @@ def _table_rows(children, _inline_to_xml=None):
                 if row["type"] != "table_row":
                     continue
                 cells = [
-                    _inline_to_xml(cell.get("children", []))
+                    _inline_to_xml(cell.get("children", []), mono_font)
                     for cell in row.get("children", [])
                     if cell["type"] == "table_cell"
                 ]
@@ -234,17 +223,13 @@ def _table_rows(children, _inline_to_xml=None):
 # ── Inline rendering ───────────────────────────────────────────────────────
 
 
-def _xml_escape(text):
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
 # Link targets that are rendered as clickable links.
 _LINKABLE_RE = re.compile(r"^(https?://|ftp://|mailto:|tel:)", re.IGNORECASE)
 
 
 def _attr_escape(text):
     """Escape a value for use inside a double-quoted XML attribute."""
-    return _xml_escape(text).replace('"', "&quot;").replace("'", "&#39;")
+    return xml_escape(text).replace('"', "&quot;").replace("'", "&#39;")
 
 
 def _inline_to_xml(children, mono_font="Courier"):
@@ -253,7 +238,7 @@ def _inline_to_xml(children, mono_font="Courier"):
     for child in children:
         t = child["type"]
         if t == "text":
-            parts.append(_xml_escape(child.get("raw", "")))
+            parts.append(xml_escape(child.get("raw", "")))
         elif t == "strong":
             parts.append("<b>" + _inline_to_xml(child.get("children", []), mono_font) + "</b>")
         elif t == "emphasis":
@@ -262,7 +247,7 @@ def _inline_to_xml(children, mono_font="Courier"):
             inner = _inline_to_xml(child.get("children", []), mono_font)
             parts.append(f"<b><i>{inner}</i></b>")
         elif t == "codespan":
-            code = _xml_escape(child.get("raw", ""))
+            code = xml_escape(child.get("raw", ""))
             parts.append(f'<font face="{mono_font}" size="9">{code}</font>')
         elif t in _BREAK_TOKENS:
             parts.append(" ")
@@ -282,14 +267,14 @@ def _inline_to_xml(children, mono_font="Courier"):
             alt = _plain_text(child.get("children", [])) or (child.get("attrs") or {}).get(
                 "alt", ""
             )
-            parts.append(_xml_escape(alt))
+            parts.append(xml_escape(alt))
         elif t == "raw_html":
             pass
         else:
             if "children" in child:
                 parts.append(_inline_to_xml(child["children"], mono_font))
             elif "raw" in child:
-                parts.append(_xml_escape(child["raw"]))
+                parts.append(xml_escape(child["raw"]))
     return "".join(parts)
 
 
@@ -302,7 +287,7 @@ def inline(text):
     tokens = md(text) or []
     if tokens and tokens[0]["type"] == "paragraph":
         return _inline_to_xml(tokens[0].get("children", []))
-    return _xml_escape(text)
+    return xml_escape(text)
 
 
 # ── Language detection ─────────────────────────────────────────────────────
