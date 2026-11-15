@@ -8,15 +8,12 @@ natively via svglib, so there's no need for an external conversion step.
 """
 
 import os
-import sys
 
 from PIL import Image as PILImage
 from reportlab.graphics import renderPDF
 from svglib.svglib import svg2rlg
 
-
-def _warn(message):
-    print(f"Warning: {message}", file=sys.stderr)
+from corpdoc._util import warn
 
 
 class Logo:
@@ -53,7 +50,7 @@ class Logo:
                 with PILImage.open(png) as im:
                     size = im.size
             except Exception as exc:  # noqa: BLE001 - PIL raises many unrelated types
-                _warn(f"logo could not be read: {png} ({exc.__class__.__name__}: {exc})")
+                warn(f"logo could not be read: {png} ({exc.__class__.__name__}: {exc})")
             else:
                 self.kind = "png"
                 self.path = png
@@ -64,10 +61,10 @@ class Logo:
             try:
                 drawing = svg2rlg(svg)
             except Exception as exc:  # noqa: BLE001 - svglib / lxml raise many unrelated types
-                _warn(f"logo could not be read: {svg} ({exc.__class__.__name__}: {exc})")
+                warn(f"logo could not be read: {svg} ({exc.__class__.__name__}: {exc})")
                 return
             if drawing is None or drawing.width <= 0 or drawing.height <= 0:
-                _warn(f"logo could not be read: {svg} (not a valid SVG)")
+                warn(f"logo could not be read: {svg} (not a valid SVG)")
                 return
             self.kind = "svg"
             self.path = svg
@@ -90,7 +87,7 @@ class Logo:
         except Exception as exc:  # noqa: BLE001 - a broken logo must not break the document
             if not self._warned:
                 self._warned = True
-                _warn(f"logo could not be drawn: {self.path} ({exc.__class__.__name__}: {exc})")
+                warn(f"logo could not be drawn: {self.path} ({exc.__class__.__name__}: {exc})")
 
     def _draw(self, canvas, x, y, width, height):
         if self.kind == "png":

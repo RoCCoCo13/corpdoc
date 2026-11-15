@@ -11,6 +11,8 @@ from urllib.parse import unquote
 import mistune
 import yaml
 
+from corpdoc._util import xml_escape
+
 # Deepest list level with its own style (0-based): three levels in total.
 MAX_LIST_LEVEL = 2
 
@@ -221,17 +223,13 @@ def _table_rows(children, mono_font="Courier"):
 # ── Inline rendering ───────────────────────────────────────────────────────
 
 
-def _xml_escape(text):
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
 # Link targets that are rendered as clickable links.
 _LINKABLE_RE = re.compile(r"^(https?://|ftp://|mailto:|tel:)", re.IGNORECASE)
 
 
 def _attr_escape(text):
     """Escape a value for use inside a double-quoted XML attribute."""
-    return _xml_escape(text).replace('"', "&quot;").replace("'", "&#39;")
+    return xml_escape(text).replace('"', "&quot;").replace("'", "&#39;")
 
 
 def _inline_to_xml(children, mono_font="Courier"):
@@ -240,7 +238,7 @@ def _inline_to_xml(children, mono_font="Courier"):
     for child in children:
         t = child["type"]
         if t == "text":
-            parts.append(_xml_escape(child.get("raw", "")))
+            parts.append(xml_escape(child.get("raw", "")))
         elif t == "strong":
             parts.append("<b>" + _inline_to_xml(child.get("children", []), mono_font) + "</b>")
         elif t == "emphasis":
@@ -249,7 +247,7 @@ def _inline_to_xml(children, mono_font="Courier"):
             inner = _inline_to_xml(child.get("children", []), mono_font)
             parts.append(f"<b><i>{inner}</i></b>")
         elif t == "codespan":
-            code = _xml_escape(child.get("raw", ""))
+            code = xml_escape(child.get("raw", ""))
             parts.append(f'<font face="{mono_font}" size="9">{code}</font>')
         elif t in _BREAK_TOKENS:
             parts.append(" ")
@@ -269,14 +267,14 @@ def _inline_to_xml(children, mono_font="Courier"):
             alt = _plain_text(child.get("children", [])) or (child.get("attrs") or {}).get(
                 "alt", ""
             )
-            parts.append(_xml_escape(alt))
+            parts.append(xml_escape(alt))
         elif t == "raw_html":
             pass
         else:
             if "children" in child:
                 parts.append(_inline_to_xml(child["children"], mono_font))
             elif "raw" in child:
-                parts.append(_xml_escape(child["raw"]))
+                parts.append(xml_escape(child["raw"]))
     return "".join(parts)
 
 
@@ -289,7 +287,7 @@ def inline(text):
     tokens = md(text) or []
     if tokens and tokens[0]["type"] == "paragraph":
         return _inline_to_xml(tokens[0].get("children", []))
-    return _xml_escape(text)
+    return xml_escape(text)
 
 
 # ── Language detection ─────────────────────────────────────────────────────

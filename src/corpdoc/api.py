@@ -19,7 +19,6 @@ Usage:
 
 import os
 import re
-import sys
 from datetime import date
 from pathlib import Path
 
@@ -41,7 +40,7 @@ from reportlab.platypus import (
 from reportlab.platypus.doctemplate import ActionFlowable
 from reportlab.platypus.tableofcontents import TableOfContents
 
-from corpdoc._config import as_bool as _as_bool
+from corpdoc._util import as_bool, warn, xml_escape
 from corpdoc.canvas import CorpCanvas
 from corpdoc.colors import assign_roles, extract_colors_from_svg
 from corpdoc.flowables import CoverPageFlowable, HRLine
@@ -50,7 +49,7 @@ from corpdoc.i18n import t
 from corpdoc.images import build_image_flowables
 from corpdoc.logo import Logo
 from corpdoc.mermaid import PNG_SCALE, MermaidRenderer
-from corpdoc.parser import _xml_escape, detect_language, parse_blocks, parse_frontmatter
+from corpdoc.parser import detect_language, parse_blocks, parse_frontmatter
 from corpdoc.styles import build_styles
 
 # Page margins shared by the portrait and landscape templates.
@@ -112,7 +111,7 @@ class CorpDocTemplate(BaseDocTemplate):
             page = self.page - self.unnumbered_pages
             # The TOC parses each entry as paragraph markup, so the plain
             # text has to be escaped again.
-            self.notify("TOCEntry", (level, _xml_escape(flowable.getPlainText()), page))
+            self.notify("TOCEntry", (level, xml_escape(flowable.getPlainText()), page))
 
 
 class CorpDoc:
@@ -180,10 +179,9 @@ class CorpDoc:
         # Warn early if a logo was configured but nothing resolved
         logo_cfg = self.cfg.get("logo", {}) or {}
         if (logo_cfg.get("png") or logo_cfg.get("svg")) and not self.logo:
-            print(
-                "Warning: logo was configured but neither PNG nor SVG could be "
+            warn(
+                "logo was configured but neither PNG nor SVG could be "
                 "loaded — PDF will render without logo.",
-                file=sys.stderr,
             )
 
         self.fonts = resolve_fonts(self.cfg)
@@ -319,10 +317,8 @@ class CorpDoc:
         result = RenderResult(output, total, body_pages, self._resolve_max_pages(meta))
         self.total_pages, self.body_pages = total, body_pages
         if result.over_limit:
-            print(
-                f"Warning: document body has {body_pages} pages, "
-                f"more than max_pages = {result.max_pages}.",
-                file=sys.stderr,
+            warn(
+                f"document body has {body_pages} pages, more than max_pages = {result.max_pages}.",
             )
         return result
 
@@ -399,10 +395,9 @@ class CorpDoc:
         if cfg_sections is None:
             cfg_sections = {}
         elif not isinstance(cfg_sections, dict):
-            print(
-                "Warning: config 'sections' must be a mapping of cover / version_history / toc "
+            warn(
+                "config 'sections' must be a mapping of cover / version_history / toc "
                 f"(got {cfg_sections!r}); using the defaults.",
-                file=sys.stderr,
             )
             cfg_sections = {}
         fm_sections = meta.get("sections")
@@ -414,7 +409,7 @@ class CorpDoc:
             value = True
             for source in (cfg_sections, meta, fm_sections):
                 if key in source and not isinstance(source[key], (dict, list)):
-                    value = _as_bool(source[key], value)
+                    value = as_bool(source[key], value)
             resolved[key] = value
         return resolved
 
@@ -435,10 +430,9 @@ class CorpDoc:
             limit = self._parse_max_pages(raw)
             if limit is not None:
                 return limit
-            print(
-                f"Warning: max_pages must be a positive whole number (got {raw!r} in the "
+            warn(
+                f"max_pages must be a positive whole number (got {raw!r} in the "
                 f"{origin}); value ignored.",
-                file=sys.stderr,
             )
         return None
 
@@ -481,12 +475,9 @@ class CorpDoc:
         cover_cfg = self.cfg.get("cover", {}) or {}
         style = cover_cfg.get("style", "classic")
         if style not in CoverPageFlowable.STYLES:
-            import sys
-
-            print(
-                f"Warning: unknown cover.style '{style}'. "
+            warn(
+                f"unknown cover.style '{style}'. "
                 f"Falling back to 'classic'. Valid: {', '.join(CoverPageFlowable.STYLES)}",
-                file=sys.stderr,
             )
             style = "classic"
 

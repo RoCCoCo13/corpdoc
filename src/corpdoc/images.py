@@ -10,12 +10,13 @@ Only local files are read. Remote URLs are never fetched.
 
 import os
 import re
-import sys
 
 from PIL import Image as PILImage
 from reportlab.lib.units import mm
 from reportlab.platypus import Image, KeepTogether, Paragraph, Spacer
 from svglib.svglib import svg2rlg
+
+from corpdoc._util import warn, xml_escape
 
 _REMOTE_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://|^data:", re.IGNORECASE)
 
@@ -23,14 +24,6 @@ _REMOTE_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://|^data:", re.IGNORECASE)
 _SPACE_BEFORE = 2 * mm
 _CAPTION_GAP = 1.5 * mm
 _SPACE_AFTER = 3 * mm
-
-
-def _xml_escape(text):
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-def _warn(message):
-    print(f"Warning: {message}", file=sys.stderr)
 
 
 def fit_size(width, height, max_width, max_height):
@@ -53,7 +46,7 @@ def _placeholder(reason, src, alt, styles):
     label = f"[ {reason}: {src} ]"
     if alt:
         label += f" {alt}"
-    return [Paragraph(_xml_escape(label), styles["CPlaceholder"])]
+    return [Paragraph(xml_escape(label), styles["CPlaceholder"])]
 
 
 def _load_svg(path, max_w, max_h, scale):
@@ -101,15 +94,15 @@ def build_image_flowables(src, alt, base_dir, max_width, max_height, styles, sca
         printed to stderr and a visible placeholder paragraph is returned.
     """
     if _REMOTE_RE.match(src):
-        _warn(f"remote images are not supported (nothing is downloaded): {src}")
+        warn(f"remote images are not supported (nothing is downloaded): {src}")
         return _placeholder("Remote image not embedded", src, alt, styles)
 
     path = resolve_path(src, base_dir)
     if not os.path.isfile(path):
-        _warn(f"image not found: {src} (looked in {path})")
+        warn(f"image not found: {src} (looked in {path})")
         return _placeholder("Image not found", src, alt, styles)
 
-    caption = Paragraph(_xml_escape(alt), styles["CCaption"]) if alt else None
+    caption = Paragraph(xml_escape(alt), styles["CCaption"]) if alt else None
     reserved = _SPACE_BEFORE + _SPACE_AFTER
     if caption is not None:
         reserved += caption.wrap(max_width, max_height)[1] + _CAPTION_GAP
@@ -119,7 +112,7 @@ def build_image_flowables(src, alt, base_dir, max_width, max_height, styles, sca
     try:
         figure = loader(path, max_width, image_max_h, scale)
     except Exception as exc:  # noqa: BLE001 - PIL / svglib / lxml raise many unrelated types
-        _warn(f"image could not be read: {src} ({exc.__class__.__name__}: {exc})")
+        warn(f"image could not be read: {src} ({exc.__class__.__name__}: {exc})")
         return _placeholder("Image could not be read", src, alt, styles)
 
     parts = [Spacer(1, _SPACE_BEFORE), figure]

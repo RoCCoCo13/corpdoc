@@ -14,10 +14,9 @@ fallback and a warning is printed.
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 
-from corpdoc._config import as_bool
+from corpdoc._util import as_bool, warn
 
 # Seconds allowed per diagram before mmdc is killed.
 DEFAULT_TIMEOUT = 30
@@ -25,10 +24,6 @@ DEFAULT_TIMEOUT = 30
 # mmdc renders the bitmap at this device scale so it stays sharp in print;
 # the image is then placed at 1 / PNG_SCALE of its pixel size.
 PNG_SCALE = 2
-
-
-def _warn(message):
-    print(f"Warning: {message}", file=sys.stderr)
 
 
 class MermaidRenderer:
@@ -67,7 +62,7 @@ class MermaidRenderer:
         if not mmdc:
             if not self._warned_missing:
                 self._warned_missing = True
-                _warn(
+                warn(
                     "Mermaid diagrams are shown as text: the 'mmdc' executable was not "
                     "found on PATH (install with: npm install -g @mermaid-js/mermaid-cli)."
                 )
@@ -96,16 +91,16 @@ class MermaidRenderer:
                 check=False,
             )
         except subprocess.TimeoutExpired:
-            _warn(f"{label}: mmdc timed out after {self.timeout:g} s; shown as text.")
+            warn(f"{label}: mmdc timed out after {self.timeout:g} s; shown as text.")
             return None
         except OSError as exc:
-            _warn(f"{label}: mmdc could not be started ({exc}); shown as text.")
+            warn(f"{label}: mmdc could not be started ({exc}); shown as text.")
             return None
 
         if proc.returncode != 0 or not os.path.isfile(out) or os.path.getsize(out) == 0:
             detail = (proc.stderr or proc.stdout or "").strip().splitlines()
             reason = detail[0][:200] if detail else f"exit code {proc.returncode}, no output file"
-            _warn(f"{label}: mmdc failed ({reason}); shown as text.")
+            warn(f"{label}: mmdc failed ({reason}); shown as text.")
             return None
         return out
 

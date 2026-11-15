@@ -18,12 +18,13 @@ Every consumer reads font names from the dict returned by `resolve_fonts`:
 """
 
 import os
-import sys
 import unicodedata
 import zlib
 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFError, TTFont
+
+from corpdoc._util import warn
 
 FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
 
@@ -45,10 +46,6 @@ _DEJAVU_FILES = {
 }
 
 _VARIANTS = ("regular", "bold", "italic", "bold_italic", "mono")
-
-
-def _warn(message):
-    print(f"Warning: {message}", file=sys.stderr)
 
 
 def _register(name, path):
@@ -124,18 +121,18 @@ def resolve_fonts(cfg):
         if isinstance(family, dict):
             unknown = sorted(set(family) - set(_VARIANTS))
             if unknown:
-                _warn(f"fonts.family: ignoring unknown keys {unknown}; valid: {list(_VARIANTS)}")
+                warn(f"fonts.family: ignoring unknown keys {unknown}; valid: {list(_VARIANTS)}")
             return _custom(family)
         name = str(family or "helvetica").strip().lower()
         if name == "dejavu":
             return _dejavu()
         if name != "helvetica":
-            _warn(
+            warn(
                 f"unknown fonts.family '{family}'. Falling back to 'helvetica'. "
                 "Valid: helvetica, dejavu, or a mapping of TTF paths."
             )
     except (OSError, ValueError, TTFError) as exc:
-        _warn(f"fonts.family could not be loaded ({exc}). Falling back to 'helvetica'.")
+        warn(f"fonts.family could not be loaded ({exc}). Falling back to 'helvetica'.")
     return dict(BUILTIN_FONTS)
 
 
@@ -189,4 +186,4 @@ def warn_unsupported(text, fonts):
         hint = 'the built-in fonts cannot encode them. Set fonts.family: "dejavu" in the config.'
     else:
         hint = "the configured font cannot draw them (it has no glyph for them)."
-    _warn(f"{len(missing)} character(s) will show as boxes: {shown}{more} — {hint}")
+    warn(f"{len(missing)} character(s) will show as boxes: {shown}{more} — {hint}")
