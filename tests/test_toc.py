@@ -69,3 +69,13 @@ def test_toc_does_not_list_itself_and_uses_footer_page_numbers(tmp_path):
     # version history carry no number); the TOC must print the same number.
     assert "Page 2 of 2" in body_page
     assert "4" not in toc_page.replace("Page 1 of 2", "")
+
+
+def test_toc_keeps_special_characters_in_headings(tmp_path):
+    out = tmp_path / "out.pdf"
+    md = "# R&D <draft> & more\n\nText.\n\n## Cost < 5 & margin > 2\n\nText.\n"
+    CorpDoc(config=MINIMAL_CONFIG).render(md, output=str(out))
+
+    toc_page = _pages(out)[2]
+    assert "R&D <draft> & more" in toc_page
+    assert "Cost < 5 & margin > 2" in toc_page

@@ -42,7 +42,7 @@ from reportlab.platypus.doctemplate import ActionFlowable
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from corpdoc.colors import extract_colors_from_svg, assign_roles
-from corpdoc.parser import parse_frontmatter, parse_blocks, detect_language
+from corpdoc.parser import _xml_escape, parse_frontmatter, parse_blocks, detect_language
 from corpdoc.styles import build_styles
 from corpdoc.flowables import HRLine, CoverPageFlowable
 from corpdoc.canvas import CorpCanvas
@@ -125,7 +125,9 @@ class CorpDocTemplate(BaseDocTemplate):
         level = {"CH1": 0, "CH2": 1, "CH3": 2}.get(flowable.style.name)
         if level is not None:
             page = self.page - self.unnumbered_pages
-            self.notify("TOCEntry", (level, flowable.getPlainText(), page))
+            # The TOC parses each entry as paragraph markup, so the plain
+            # text has to be escaped again.
+            self.notify("TOCEntry", (level, _xml_escape(flowable.getPlainText()), page))
 
 
 class CorpDoc:
