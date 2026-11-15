@@ -328,11 +328,11 @@ the output path (a `str`), with extra attributes:
 
 ```python
 result = CorpDoc(config="corpdoc.yml").render("report.md", output="report.pdf")
-print(result)               # report.pdf
-print(result.total_pages)   # 14
-print(result.body_pages)    # 11
-print(result.max_pages)     # 12, or None when no limit is set
-print(result.over_limit)    # False
+print(result)  # report.pdf
+print(result.total_pages)  # 14
+print(result.body_pages)  # 11
+print(result.max_pages)  # 12, or None when no limit is set
+print(result.over_limit)  # False
 ```
 
 ## Images

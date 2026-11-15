@@ -12,6 +12,9 @@ Existing documents render as before: every new behaviour is additive or
 opt-in. The exceptions are the things that were not rendered at all until now
 — numbered lists, block images, link targets, a third list level — and
 Mermaid diagrams on machines where `mmdc` is installed.
+Two bug fixes also change existing output: the table of contents is now
+filled, and words at wrapped source lines are no longer glued together
+(see Fixed).
 
 ### Added
 - **Images.** A paragraph that contains only an image is drawn as a figure:
@@ -68,6 +71,13 @@ Mermaid diagrams on machines where `mmdc` is installed.
   path, and CorpDoc makes no network calls at render time.
 
 ### Fixed
+- **Table of contents was empty.** The contents page showed only a
+  placeholder text because the document was built in a single pass. It now
+  lists the H1–H3 headings with the page numbers printed in the footers.
+- **Words glued at line breaks.** A line break inside a paragraph, list item
+  or table cell in the Markdown source ("line one⏎line two") rendered as
+  "line oneline two". It now renders as a space. Paragraphs become slightly
+  longer where this happened, so page breaks can shift.
 - A code block without a language (a bare ` ``` ` fence, or an indented code
   block) crashed the render with `KeyError: 'attrs'`.
 - The alt text of an inline image was dropped instead of printed (mistune v3
