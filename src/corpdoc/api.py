@@ -154,6 +154,13 @@ class CorpDoc:
           language: "auto"|en|es|de|fr   # default: auto
           version: "1.0"
           author: str
+          max_pages: int            # optional body-page limit
+
+    Optional blocks (see docs/configuration.md):
+        sections: {cover, version_history, toc}   # front pages, default true
+        fonts:    {family: helvetica|dejavu|{regular: path, ...}}
+        mermaid:  {enabled, timeout, puppeteer_config}
+        cover, tables, colors
     """
 
     def __init__(self, config):

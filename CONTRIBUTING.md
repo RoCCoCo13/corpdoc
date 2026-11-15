@@ -65,8 +65,10 @@ Add your stop-word list to `parser.py::detect_language` and page-label
 translations to `corpdoc/i18n.py::LANGUAGES`.
 
 ### Diagram rendering
-Current Mermaid handling is a styled text placeholder. Real rendering via
-Kroki.io or a local mermaid-cli fallback would be great.
+Mermaid blocks are rendered locally through the Mermaid CLI (`mmdc`) when it
+is installed, with a text fallback otherwise. Improvements are welcome (SVG
+output, theming from the brand colors), as long as rendering stays local:
+CorpDoc must not send document content to an external service.
 
 ### Integrations
 - VS Code extension (run `corpdoc render` from the command palette)

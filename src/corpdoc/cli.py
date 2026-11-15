@@ -103,6 +103,18 @@ defaults:
   language: "auto"           # auto|en|es|de|fr
   version: "1.0"
   author: ""
+  # max_pages: 20            # optional: warn when the body is longer
+
+sections:
+  # Front pages. A document can override these in its frontmatter.
+  cover: true
+  version_history: true
+  toc: true
+
+fonts:
+  # "helvetica" — PDF built-in fonts (Western European text)
+  # "dejavu"    — bundled DejaVu fonts: Greek, Cyrillic, formulas, subscripts
+  family: "helvetica"
 
 tables:
   # Tables with this many columns (or more) are auto-rotated to a landscape

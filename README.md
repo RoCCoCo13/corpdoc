@@ -65,7 +65,17 @@ Typst, or fight with Word templates.
   so content stays readable
 - 🌐 **Language detection** (English, Spanish, German, French) — pagination
   and labels localize automatically
-- 📐 **Nested lists**, inline formatting, code blocks, Mermaid diagrams
+- 🖼️ **Images** — PNG, JPG and SVG figures, scaled to the page, with captions
+- 📐 **Lists** — bullets nested three levels deep, and numbered lists
+- 🔗 **Clickable links**, inline formatting, code blocks
+- 🔤 **Unicode fonts (opt-in)** — bundled DejaVu family for formulas, Greek,
+  subscripts and arrows, or your own TTF files
+- 🧩 **Optional front pages** — switch cover, version history and table of
+  contents on or off, per company or per document
+- 📏 **Page count and page limit** — every render reports total and body
+  pages; `max_pages` warns, `--strict` fails
+- 🧜 **Mermaid diagrams, rendered locally** when the Mermaid CLI (`mmdc`) is
+  installed — nothing is sent to an online service
 - 🤖 **AI-ready** — comes with a `SKILL.md` any LLM can follow
 
 ---
@@ -160,6 +170,10 @@ corpdoc/
 │   ├── cli.py              # Command-line interface
 │   ├── colors.py           # SVG color extraction
 │   ├── parser.py           # Markdown parser
+│   ├── images.py           # Block images (PNG, JPG, SVG)
+│   ├── fonts.py            # Font families (built-in, DejaVu, custom TTF)
+│   ├── fonts/              # Bundled DejaVu fonts + their licence
+│   ├── mermaid.py          # Local Mermaid rendering via mmdc
 │   ├── canvas.py           # Header/footer drawing
 │   ├── flowables.py        # Cover page, custom flowables
 │   └── styles.py           # Paragraph and table styles
@@ -182,7 +196,9 @@ corpdoc/
 - [x] **v0.4** — Native SVG rendering, auto-landscape for wide tables,
   configurable cover styles, `highlight` color role, pastel cover
   surfaces, hardened release pipeline (OIDC + pip-audit + Dependabot)
-- [ ] **v0.5** — Mermaid diagram rendering via Quarto/Kroki fallback
+- [x] **v0.5** — Images, numbered lists, clickable links, optional front
+  pages, page count and `max_pages`, opt-in Unicode fonts (DejaVu / custom
+  TTF), local Mermaid rendering via `mmdc`
 - [ ] **v0.6** — DOCX export via Pandoc pipeline
 - [ ] **v0.7** — Template gallery (offers, reports, memos, contracts)
 - [ ] **v1.0** — Stable API, PyPI release, comprehensive test suite
